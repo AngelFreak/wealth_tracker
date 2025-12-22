@@ -2,6 +2,8 @@
 
 A personal wealth tracking application for managing assets, liabilities, transactions, and financial goals. Built with Go, HTMX, Alpine.js, and Tailwind CSS.
 
+[![Go](https://github.com/AngelFreak/wealth_tracker/actions/workflows/go.yml/badge.svg)](https://github.com/AngelFreak/wealth_tracker/actions/workflows/go.yml)
+
 ## Features
 
 - **Dashboard** - Net worth overview with charts and KPI cards
