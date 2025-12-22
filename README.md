@@ -1,29 +1,65 @@
 # Wealth Tracker
 
-A personal wealth tracking application for managing assets, liabilities, transactions, and financial goals. Built with Go, HTMX, Alpine.js, and Tailwind CSS.
+<div align="center">
+
+![Go](https://img.shields.io/badge/Go-1.24-00ADD8?style=flat&logo=go&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-3-003B57?style=flat&logo=sqlite&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat)
 
 [![Go](https://github.com/AngelFreak/wealth_tracker/actions/workflows/go.yml/badge.svg)](https://github.com/AngelFreak/wealth_tracker/actions/workflows/go.yml)
 
-## Features
+**A modern, self-hosted personal finance tracker for managing your wealth, investments, and financial goals.**
 
-- **Dashboard** - Net worth overview with charts and KPI cards
-- **Accounts** - Track assets and liabilities across categories
-- **Transactions** - Record income, expenses, and transfers
-- **Categories** - Organize accounts by type (stocks, cash, property, etc.)
-- **Goals** - Set and track financial targets
-- **Multi-currency** - Support for multiple currencies with exchange rates
-- **Broker Integration** - Sync with Nordnet (Danish broker)
-- **Financial Tools**
-  - FIRE Calculator (Financial Independence, Retire Early)
-  - Compound Interest Calculator
-  - Salary Calculator (Danish tax)
-- **Dark/Light Mode** - System preference or manual toggle
+[Features](#-features) • [Quick Start](#-quick-start) • [Broker Integration](#-broker-integration) • [Development](#-development)
 
-## Quick Start with Docker
+</div>
+
+---
+
+## ✨ Features
+
+### 📊 Dashboard & Analytics
+- **Net Worth Overview** - Real-time visualization of your total wealth
+- **Interactive Charts** - Track trends over time with beautiful graphs
+- **KPI Cards** - Quick insights into your financial health
+
+### 💰 Account Management
+- **Assets & Liabilities** - Track everything from stocks to mortgages
+- **Categories** - Organize accounts by type (investments, cash, property, crypto, etc.)
+- **Multi-Currency** - Support for multiple currencies with live exchange rates
+- **Transaction History** - Record income, expenses, and transfers
+
+### 🎯 Financial Goals
+- **Goal Tracking** - Set targets and monitor progress
+- **Category-Based Goals** - Link goals to specific account categories
+- **Visual Progress** - See how close you are to financial independence
+
+### 🔗 Broker Integration
+- **Nordnet** - Danish/Nordic broker with MitID authentication
+- **Saxo Bank** - OAuth-based integration for Saxo accounts
+- **Auto-Sync** - Automatically fetch positions and balances
+- **Holdings View** - See all your investments in one place
+
+### 🧮 Financial Calculators
+- **FIRE Calculator** - Plan your path to Financial Independence, Retire Early
+- **Compound Interest** - Visualize the power of compound growth
+- **Danish Salary Calculator** - Calculate net salary with Danish tax rules
+
+### 🎨 User Experience
+- **Dark/Light Mode** - Follows system preference or manual toggle
+- **Responsive Design** - Works on desktop, tablet, and mobile
+- **Fast & Modern** - Built with HTMX for snappy interactions
+
+---
+
+## 🚀 Quick Start
+
+### Using Docker (Recommended)
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/wealth_tracker.git
+git clone https://github.com/AngelFreak/wealth_tracker.git
 cd wealth_tracker
 
 # Configure environment
@@ -39,29 +75,56 @@ sed -i "s|ENCRYPTION_SECRET=.*|ENCRYPTION_SECRET=$ENCRYPTION_SECRET|" .env
 docker compose up -d
 
 # Access at http://localhost:8080
-# Default login: admin@localhost / changeme
 ```
 
-**Important:** Change the default password on first login.
+**Default credentials:** `admin@localhost` / `changeme`
 
-## Development Setup
+> ⚠️ **Important:** Change the default password immediately after first login!
+
+---
+
+## 🔗 Broker Integration
+
+### Nordnet (Denmark/Nordic)
+
+Connect your Nordnet account using MitID authentication:
+
+1. Go to **Settings** → **Connections** → **Add Connection**
+2. Select **Nordnet** and enter your CPR number
+3. Scan the QR code with your MitID app
+4. Map your Nordnet accounts to local accounts
+
+### Saxo Bank
+
+Connect your Saxo Bank account using OAuth:
+
+1. Create an app at [Saxo Developer Portal](https://developer.saxo/)
+2. Go to **Settings** → **Connections** → **Add Connection**
+3. Select **Saxo** and enter your App Key and Secret
+4. Complete the OAuth login flow
+5. Map your Saxo accounts to local accounts
+
+> **Note:** Saxo integration requires a registered developer application. See [Saxo OpenAPI docs](https://developer.saxo/) for setup instructions.
+
+---
+
+## 🛠️ Development
 
 ### Prerequisites
 
 - Go 1.24+
 - Node.js 18+ (for Tailwind CSS)
+- Docker (optional)
 
-### Installation
+### Local Setup
 
 ```bash
 # Clone and enter directory
-git clone https://github.com/yourusername/wealth_tracker.git
+git clone https://github.com/AngelFreak/wealth_tracker.git
 cd wealth_tracker
 
-# Install Go dependencies
+# Install dependencies
 go mod download
-
-# Install Node dependencies
 npm install
 
 # Build CSS
@@ -71,15 +134,15 @@ npm run css
 go run ./cmd/server
 ```
 
-The application runs at `http://localhost:8080`
+Access at `http://localhost:8080`
 
 ### Development Commands
 
 ```bash
-# Run server with live reload (requires air)
+# Run with live reload
 make dev
 
-# Watch and rebuild CSS
+# Watch CSS changes
 npm run css:watch
 
 # Run tests
@@ -89,62 +152,69 @@ make test
 make build
 ```
 
-## Project Structure
+---
+
+## 📁 Project Structure
 
 ```
 wealth_tracker/
 ├── cmd/server/          # Application entry point
 ├── internal/
 │   ├── auth/            # Authentication & sessions
-│   ├── broker/          # Broker integrations (Nordnet)
-│   ├── config/          # Configuration management
-│   ├── database/        # SQLite setup & migrations
-│   ├── handlers/        # HTTP request handlers
+│   ├── broker/          # Broker integrations
+│   │   ├── nordnet/     # Nordnet + MitID
+│   │   └── saxo/        # Saxo Bank OAuth
+│   ├── config/          # Configuration
+│   ├── database/        # SQLite & migrations
+│   ├── handlers/        # HTTP handlers
 │   ├── middleware/      # Auth middleware
 │   ├── models/          # Data models
-│   ├── repository/      # Database access layer
-│   ├── services/        # Business logic
-│   └── sync/            # Broker synchronization
+│   ├── repository/      # Database layer
+│   └── services/        # Business logic
 ├── web/
-│   ├── static/
-│   │   ├── css/         # Tailwind CSS
-│   │   └── js/          # Alpine.js components
+│   ├── static/          # CSS, JS, images
 │   └── templates/       # Go HTML templates
 ├── Dockerfile
 ├── docker-compose.yml
 └── Makefile
 ```
 
-## Tech Stack
+---
 
-| Component | Technology |
-|-----------|------------|
-| Backend | Go with Chi router |
-| Database | SQLite (pure Go driver) |
-| Frontend | HTMX + Alpine.js |
-| Styling | Tailwind CSS |
-| Icons | Lucide Icons |
-| Containerization | Docker |
+## ⚙️ Tech Stack
 
-## Environment Variables
+| Layer | Technology |
+|-------|------------|
+| **Backend** | Go 1.24, Chi Router |
+| **Database** | SQLite (pure Go driver) |
+| **Frontend** | HTMX, Alpine.js |
+| **Styling** | Tailwind CSS |
+| **Icons** | Lucide Icons |
+| **Auth** | Session-based, MitID, OAuth2 |
+| **Container** | Docker, Docker Compose |
+
+---
+
+## 🔧 Configuration
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | Server port | `8080` |
 | `HOST` | Server host | `localhost` |
 | `DB_PATH` | SQLite database path | `data/wealth.db` |
-| `SESSION_SECRET` | Cookie signing key | - |
-| `ENCRYPTION_SECRET` | Credential encryption key (32 chars) | - |
-| `ENV` | Environment (development/production) | `development` |
+| `SESSION_SECRET` | Cookie signing key | *required* |
+| `ENCRYPTION_SECRET` | Credential encryption (32 chars) | *required* |
+| `ENV` | Environment mode | `development` |
+| `TZ` | Timezone | `Europe/Copenhagen` |
 
-## Deployment
+---
+
+## 🚢 Deployment
 
 ### Docker (Recommended)
 
-The application is designed to run as a single Docker container with SQLite for data persistence.
-
 ```bash
-# Build and run
+# Start
 docker compose up -d
 
 # View logs
@@ -154,21 +224,28 @@ docker compose logs -f
 docker compose down
 ```
 
-Data is persisted in the `./data` directory.
+Data persists in `./data` directory.
 
 ### With HTTPS (Caddy)
 
-For production deployments, use Caddy as a reverse proxy for automatic HTTPS:
-
 ```bash
-# Uncomment the Caddy service in docker-compose.yml
-# Create Caddyfile with your domain
+# Create Caddyfile
 echo "wealth.yourdomain.com { reverse_proxy wealth-tracker:8080 }" > Caddyfile
 
-# Start services
+# Uncomment Caddy service in docker-compose.yml and start
 docker compose up -d
 ```
 
-## License
+---
 
-MIT License - see [LICENSE](LICENSE) file for details.
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Built with ❤️ for personal finance nerds**
+
+</div>
