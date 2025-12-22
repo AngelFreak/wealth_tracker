@@ -125,6 +125,20 @@
                                 Please wait while we establish a secure connection.
                             </p>
                             <p class="text-sm text-gray-500 dark:text-gray-400" x-text="status"></p>
+                            <!-- Saxo OAuth URL Display (for Docker/headless environments) -->
+                            <template x-if="authUrl && brokerType === 'saxo'">
+                                <div class="mt-4 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-left">
+                                    <p class="text-xs text-emerald-400 mb-2">
+                                        <strong>Click below to open Saxo login:</strong>
+                                    </p>
+                                    <a :href="authUrl" target="_blank" rel="noopener noreferrer"
+                                       class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-all">
+                                        <i data-lucide="external-link" class="w-4 h-4"></i>
+                                        Open Saxo Login
+                                    </a>
+                                    <p class="text-[10px] text-emerald-400/70 mt-2 break-all" x-text="authUrl"></p>
+                                </div>
+                            </template>
                             <p class="text-xs text-gray-400 dark:text-gray-500 mt-4">
                                 This may take up to 2 minutes. The page will refresh automatically when done.
                             </p>
@@ -370,6 +384,7 @@ function brokerSync(connectionId, brokerType) {
         errorType: null,
         successMsg: null,
         brokerType: brokerType,
+        authUrl: null,
 
         init() {
             // Auto-start sync if ?action=sync is in URL
@@ -526,6 +541,11 @@ function brokerSync(connectionId, brokerType) {
                     if (response.ok) {
                         const data = await response.json();
                         this.status = this.formatStatus(data.status);
+
+                        // Capture auth URL for Saxo OAuth (to display clickable link)
+                        if (data.auth_url) {
+                            this.authUrl = data.auth_url;
+                        }
 
                         if (data.status === 'qr_ready') {
                             this.qrReady = true;

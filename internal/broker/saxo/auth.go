@@ -52,6 +52,10 @@ var (
 	activeOAuthSessions      = make(map[int64]*OAuthSession)
 	activeOAuthSessionsMutex sync.RWMutex
 
+	// Active callback servers by connection ID (for cleanup)
+	activeCallbackServers      = make(map[int64]*callbackServer)
+	activeCallbackServersMutex sync.Mutex
+
 	// Cached sessions by connection ID
 	cachedSessions      = make(map[int64]*Session)
 	cachedSessionsMutex sync.RWMutex
@@ -59,6 +63,46 @@ var (
 	// Use production auth URL by default
 	authBaseURL = authURLProduction
 )
+
+// callbackServer tracks an active OAuth callback server for cleanup
+type callbackServer struct {
+	listener net.Listener
+	server   *http.Server
+}
+
+// CleanupCallbackServer forcefully closes any existing callback server for a connection
+func CleanupCallbackServer(connectionID int64) {
+	activeCallbackServersMutex.Lock()
+	defer activeCallbackServersMutex.Unlock()
+
+	if cs, exists := activeCallbackServers[connectionID]; exists {
+		log.Printf("[Saxo OAuth] Cleaning up existing callback server for connection %d", connectionID)
+		if cs.server != nil {
+			cs.server.Close()
+		}
+		if cs.listener != nil {
+			cs.listener.Close()
+		}
+		delete(activeCallbackServers, connectionID)
+	}
+}
+
+// CleanupAllCallbackServers closes all active callback servers
+func CleanupAllCallbackServers() {
+	activeCallbackServersMutex.Lock()
+	defer activeCallbackServersMutex.Unlock()
+
+	for id, cs := range activeCallbackServers {
+		log.Printf("[Saxo OAuth] Cleaning up callback server for connection %d", id)
+		if cs.server != nil {
+			cs.server.Close()
+		}
+		if cs.listener != nil {
+			cs.listener.Close()
+		}
+	}
+	activeCallbackServers = make(map[int64]*callbackServer)
+}
 
 // SetSimulationMode switches to simulation environment.
 func SetSimulationMode(simulation bool) {
@@ -285,11 +329,13 @@ func AuthenticateWithOAuth(connectionID int64, appKey, appSecret, redirectURI st
 		port = "33847"
 	}
 
+	// Clean up any existing callback server before starting a new one
+	CleanupCallbackServer(connectionID)
+
 	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%s", port))
 	if err != nil {
 		return nil, fmt.Errorf("starting callback server on port %s: %w", port, err)
 	}
-	defer listener.Close()
 
 	// HTTP handler for OAuth callback
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -346,12 +392,29 @@ func AuthenticateWithOAuth(connectionID int64, appKey, appSecret, redirectURI st
 	})
 
 	server := &http.Server{Handler: handler}
+
+	// Register the callback server for cleanup tracking
+	activeCallbackServersMutex.Lock()
+	activeCallbackServers[connectionID] = &callbackServer{
+		listener: listener,
+		server:   server,
+	}
+	activeCallbackServersMutex.Unlock()
+
+	// Ensure cleanup on function exit
+	defer func() {
+		activeCallbackServersMutex.Lock()
+		delete(activeCallbackServers, connectionID)
+		activeCallbackServersMutex.Unlock()
+		server.Shutdown(context.Background())
+		listener.Close()
+	}()
+
 	go func() {
 		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			log.Printf("[Saxo OAuth] Callback server error: %v", err)
 		}
 	}()
-	defer server.Shutdown(context.Background())
 
 	// Update status and open browser
 	oauthSession.Status = "waiting"
