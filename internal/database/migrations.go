@@ -245,6 +245,10 @@ const migrationAddSaxoAppKey = `
 ALTER TABLE broker_connections ADD COLUMN app_key TEXT;
 `
 
+const migrationAddSaxoAppSecret = `
+ALTER TABLE broker_connections ADD COLUMN app_secret TEXT;
+`
+
 const migrationAddSaxoRedirectURI = `
 ALTER TABLE broker_connections ADD COLUMN redirect_uri TEXT;
 `

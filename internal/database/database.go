@@ -94,6 +94,7 @@ func (db *DB) RunMigrations() error {
 		migrationAddSaxoTokenExpiry,
 		migrationAddSaxoRefreshExpiry,
 		migrationAddSaxoAppKey,
+		migrationAddSaxoAppSecret,
 		migrationAddSaxoRedirectURI,
 	}
 	for _, migration := range alterMigrations {
