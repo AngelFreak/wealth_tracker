@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="space-y-6 max-w-2xl">
+<div class="space-y-6">
     <!-- Page Header -->
     <div>
         <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
@@ -115,13 +115,16 @@
                 </div>
 
                 <!-- Theme -->
-                <div>
+                <div x-data="{ currentTheme: $store.theme.dark ? 'dark' : 'light' }">
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
                         Theme
                     </label>
                     <div class="grid grid-cols-2 gap-3">
                         <label class="relative cursor-pointer">
-                            <input type="radio" name="theme" value="dark" {{if eq .User.Theme "dark"}}checked{{end}} class="peer sr-only">
+                            <input type="radio" name="theme" value="dark"
+                                   :checked="currentTheme === 'dark'"
+                                   @change="currentTheme = 'dark'; $store.theme.dark = true; $store.theme.apply(); $store.theme.save()"
+                                   class="peer sr-only">
                             <div class="p-4 rounded-xl border-2 border-gray-200 dark:border-dark-border peer-checked:border-amber-500 peer-checked:bg-amber-500/5 transition-all">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-lg bg-gray-900 flex items-center justify-center">
@@ -135,7 +138,10 @@
                             </div>
                         </label>
                         <label class="relative cursor-pointer">
-                            <input type="radio" name="theme" value="light" {{if eq .User.Theme "light"}}checked{{end}} class="peer sr-only">
+                            <input type="radio" name="theme" value="light"
+                                   :checked="currentTheme === 'light'"
+                                   @change="currentTheme = 'light'; $store.theme.dark = false; $store.theme.apply(); $store.theme.save()"
+                                   class="peer sr-only">
                             <div class="p-4 rounded-xl border-2 border-gray-200 dark:border-dark-border peer-checked:border-amber-500 peer-checked:bg-amber-500/5 transition-all">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
@@ -149,7 +155,7 @@
                             </div>
                         </label>
                     </div>
-                    <p class="mt-2 text-xs text-gray-400">Theme changes take effect after save</p>
+                    <p class="mt-2 text-xs text-gray-400">Theme changes apply immediately</p>
                 </div>
             </div>
         </div>
