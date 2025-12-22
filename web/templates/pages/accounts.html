@@ -1,0 +1,538 @@
+{{define "content"}}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
+                Accounts
+            </h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Track your assets and liabilities</p>
+        </div>
+        <button onclick="openCreateModal()" class="btn-primary text-xs">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            New Account
+        </button>
+    </div>
+
+    {{if .Error}}
+    <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+        <p class="text-sm text-red-400">{{.Error}}</p>
+    </div>
+    {{end}}
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 gap-4">
+        <div class="card p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Assets</p>
+                    <p class="text-xl font-semibold text-gray-900 dark:text-white">{{.AssetCount}}</p>
+                </div>
+            </div>
+        </div>
+        <div class="card p-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Liabilities</p>
+                    <p class="text-xl font-semibold text-gray-900 dark:text-white">{{.LiabilityCount}}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Accounts List -->
+    {{if .Accounts}}
+    <div class="card">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-200 dark:border-dark-border">
+                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Account</th>
+                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Category</th>
+                    <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Balance</th>
+                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                    <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                    <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"></th>
+                </tr>
+            </thead>
+            {{range .Accounts}}
+            <tbody class="divide-y divide-gray-100 dark:divide-dark-border border-b border-gray-100 dark:border-dark-border last:border-b-0" x-data="{ showHoldings: false }">
+                <tr class="group hover:bg-gray-50 dark:hover:bg-dark-hover transition-colors">
+                    <td class="px-5 py-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-lg flex items-center justify-center {{if .IsLiability}}bg-red-500/10{{else}}bg-emerald-500/10{{end}}">
+                                {{if .IsLiability}}
+                                <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                                </svg>
+                                {{else}}
+                                <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                                </svg>
+                                {{end}}
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <p class="font-medium text-gray-900 dark:text-white">{{.Name}}</p>
+                                    {{if .Holdings}}
+                                    <button @click="showHoldings = !showHoldings" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                        </svg>
+                                        {{len .Holdings}} holdings
+                                        <svg class="w-3 h-3 transition-transform" :class="showHoldings ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </button>
+                                    {{end}}
+                                </div>
+                                {{if .Notes}}
+                                <p class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">{{.Notes}}</p>
+                                {{end}}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-5 py-4">
+                        {{if .Category}}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs" style="background-color: {{.Category.Color}}15; color: {{.Category.Color}};">
+                            <span class="w-2 h-2 rounded-full" style="background-color: {{.Category.Color}};"></span>
+                            {{.Category.Name}}
+                        </span>
+                        {{else}}
+                        <span class="text-xs text-gray-400">Uncategorized</span>
+                        {{end}}
+                    </td>
+                    <td class="px-5 py-4 text-right">
+                        <button onclick="openBalanceModal({{.ID}}, '{{.Name}}', {{.Balance}}, '{{.Currency}}')"
+                            class="group/btn inline-flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors">
+                            <span class="text-sm font-semibold tabular-nums text-gray-900 dark:text-white">
+                                {{formatNumber .Balance $.User.NumberFormat}}
+                            </span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">{{.Currency}}</span>
+                            <svg class="w-3.5 h-3.5 text-amber-500 opacity-0 group-hover/btn:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                            </svg>
+                        </button>
+                    </td>
+                    <td class="px-5 py-4">
+                        {{if .IsLiability}}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+                            Liability
+                        </span>
+                        {{else}}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                            Asset
+                        </span>
+                        {{end}}
+                    </td>
+                    <td class="px-5 py-4">
+                        {{if .IsActive}}
+                        <span class="inline-flex items-center gap-1 text-xs text-emerald-500">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Active
+                        </span>
+                        {{else}}
+                        <span class="inline-flex items-center gap-1 text-xs text-gray-400">
+                            <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                            Inactive
+                        </span>
+                        {{end}}
+                    </td>
+                    <td class="px-5 py-4 text-right">
+                        <div class="relative inline-block" x-data="{ open: false }">
+                            <button @click="open = !open" class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-hover opacity-0 group-hover:opacity-100 transition-opacity">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                                </svg>
+                            </button>
+                            <div x-show="open" @click.away="open = false"
+                                 x-transition:enter="transition ease-out duration-100"
+                                 x-transition:enter-start="opacity-0 scale-95"
+                                 x-transition:enter-end="opacity-100 scale-100"
+                                 x-transition:leave="transition ease-in duration-75"
+                                 x-transition:leave-start="opacity-100 scale-100"
+                                 x-transition:leave-end="opacity-0 scale-95"
+                                 class="absolute right-0 mt-1 w-36 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-xl shadow-xl py-1.5 z-50"
+                                 style="display: none;">
+                                <button onclick="editAccount({{.ID}}, '{{.Name}}', '{{.Currency}}', {{if .CategoryID}}{{.CategoryID}}{{else}}0{{end}}, '{{.Notes}}', {{.IsLiability}}, {{.IsActive}})" class="w-full px-3 py-2 flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-hover">
+                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                    Edit
+                                </button>
+                                <div class="border-t border-gray-100 dark:border-dark-border my-1"></div>
+                                <form action="/accounts/{{.ID}}" method="POST" x-ref="deleteForm{{.ID}}"
+                                      @submit.prevent="$store.confirm.show({
+                                          title: 'Delete Account',
+                                          message: 'Are you sure you want to delete this account? All transactions will be permanently removed.',
+                                          type: 'danger',
+                                          confirmText: 'Delete',
+                                          form: $refs.deleteForm{{.ID}}
+                                      })">
+                                    <input type="hidden" name="_method" value="DELETE">
+                                    <button type="submit" class="w-full px-3 py-2 flex items-center gap-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {{if .Holdings}}
+                {{$account := .}}
+                <tr x-show="showHoldings" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="bg-gray-50/50 dark:bg-dark-bg/50">
+                    <td colspan="6" class="px-5 py-3">
+                        <div class="ml-12 rounded-xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="border-b border-gray-100 dark:border-dark-border">
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Symbol</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Qty</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Price</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Value</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">P/L</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 dark:divide-dark-border">
+                                    {{range .Holdings}}
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-dark-hover">
+                                        <td class="px-4 py-2">
+                                            <span class="font-mono text-xs font-medium text-indigo-600 dark:text-indigo-400">{{.Symbol}}</span>
+                                        </td>
+                                        <td class="px-4 py-2">
+                                            <span class="text-xs text-gray-700 dark:text-gray-300 truncate max-w-[200px] block">{{.Name}}</span>
+                                        </td>
+                                        <td class="px-4 py-2 text-right">
+                                            <span class="text-xs tabular-nums text-gray-700 dark:text-gray-300">{{printf "%.4f" .Quantity}}</span>
+                                        </td>
+                                        <td class="px-4 py-2 text-right">
+                                            <span class="text-xs tabular-nums text-gray-700 dark:text-gray-300">
+                                                {{if .CurrentPrice}}{{printf "%.2f" .CurrentPrice}}{{else}}-{{end}}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-2 text-right">
+                                            <span class="text-xs tabular-nums font-medium text-gray-900 dark:text-white">{{printf "%.2f" .CurrentValue}} {{.Currency}}</span>
+                                        </td>
+                                        <td class="px-4 py-2 text-right">
+                                            {{$pl := .ProfitLossPercent}}
+                                            {{if gt $pl 0.0}}
+                                            <span class="inline-flex items-center gap-1 text-xs tabular-nums text-emerald-600 dark:text-emerald-400">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                                                </svg>
+                                                +{{printf "%.2f" $pl}}%
+                                            </span>
+                                            {{else if lt $pl 0.0}}
+                                            <span class="inline-flex items-center gap-1 text-xs tabular-nums text-red-600 dark:text-red-400">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                                                </svg>
+                                                {{printf "%.2f" $pl}}%
+                                            </span>
+                                            {{else}}
+                                            <span class="text-xs text-gray-400">-</span>
+                                            {{end}}
+                                        </td>
+                                    </tr>
+                                    {{end}}
+                                </tbody>
+                                <tfoot class="border-t border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-bg">
+                                    <tr>
+                                        <td colspan="4" class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total Holdings Value:</td>
+                                        <td class="px-4 py-2 text-right text-xs font-semibold text-gray-900 dark:text-white tabular-nums">{{printf "%.2f" $account.HoldingsValue}} {{$account.Currency}}</td>
+                                        <td class="px-4 py-2"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+            {{end}}
+        </table>
+    </div>
+    {{else}}
+    <!-- Empty State -->
+    <div class="card p-12 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/10 flex items-center justify-center">
+            <svg class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+            </svg>
+        </div>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            No accounts yet
+        </h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+            Start tracking your wealth by adding your first account. This could be a bank account, investment portfolio, or even a loan.
+        </p>
+        <button onclick="openCreateModal()" class="btn-primary text-sm">
+            Add your first account
+        </button>
+    </div>
+    {{end}}
+</div>
+
+<!-- Create/Edit Modal -->
+<div id="accountModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex min-h-full items-center justify-center p-4">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal()"></div>
+
+        <!-- Modal -->
+        <div class="relative bg-white dark:bg-dark-surface rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-dark-border overflow-hidden">
+            <!-- Gradient Header -->
+            <div class="gradient-emerald px-6 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
+                        <i data-lucide="wallet" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <h2 id="modalTitle" class="text-xl font-semibold text-white">
+                        New Account
+                    </h2>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <form id="accountForm" action="/accounts" method="POST" class="space-y-5">
+                    <input type="hidden" id="accountId" name="id" value="">
+
+                    <!-- Name -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Name
+                        </label>
+                        <input type="text" name="name" id="accountName" required
+                            class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+                            placeholder="e.g., Nordnet, Bank Account, Mortgage">
+                    </div>
+
+                    <!-- Currency -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Currency
+                        </label>
+                        <select name="currency" id="accountCurrency" class="select">
+                            <option value="DKK">DKK - Danish Krone</option>
+                            <option value="EUR">EUR - Euro</option>
+                            <option value="USD">USD - US Dollar</option>
+                            <option value="GBP">GBP - British Pound</option>
+                            <option value="SEK">SEK - Swedish Krona</option>
+                            <option value="NOK">NOK - Norwegian Krone</option>
+                            <option value="CHF">CHF - Swiss Franc</option>
+                        </select>
+                    </div>
+
+                    <!-- Category -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Category
+                        </label>
+                        <select name="category_id" id="accountCategory" class="select">
+                            <option value="">No category</option>
+                            {{range .Categories}}
+                            <option value="{{.ID}}">{{.Name}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+
+                    <!-- Type Toggle -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Account Type
+                        </label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="is_liability" value="0" checked class="peer sr-only" id="typeAsset">
+                                <div class="flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-gray-200 dark:border-dark-border peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 transition-all">
+                                    <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                                    </svg>
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Asset</span>
+                                </div>
+                            </label>
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="is_liability" value="1" class="peer sr-only" id="typeLiability">
+                                <div class="flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-gray-200 dark:border-dark-border peer-checked:border-red-500 peer-checked:bg-red-500/10 transition-all">
+                                    <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                                    </svg>
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Liability</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Status Toggle (only for edit) -->
+                    <div id="statusField" class="hidden">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Status
+                        </label>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="is_active" value="1" class="sr-only peer" id="accountActive" checked>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-amber-500/50 rounded-full peer dark:bg-dark-border peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-amber-500"></div>
+                            <span class="ml-3 text-sm text-gray-700 dark:text-gray-300">Active</span>
+                        </label>
+                    </div>
+
+                    <!-- Notes -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Notes (optional)
+                        </label>
+                        <textarea name="notes" id="accountNotes" rows="2"
+                            class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all resize-none"
+                            placeholder="Add any notes about this account"></textarea>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex gap-3 pt-2">
+                        <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 text-xs font-medium rounded-lg border-2 border-gray-200 dark:border-dark-border text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-hover transition-all">
+                            Cancel
+                        </button>
+                        <button type="submit" class="flex-1 px-4 py-2.5 text-xs font-medium rounded-lg gradient-emerald text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all">
+                            Save Account
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Update Balance Modal -->
+<div id="balanceModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex min-h-full items-center justify-center p-4">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" onclick="closeBalanceModal()"></div>
+
+        <!-- Modal -->
+        <div class="relative bg-white dark:bg-dark-surface rounded-2xl shadow-2xl w-full max-w-sm border border-gray-200 dark:border-dark-border overflow-hidden">
+            <!-- Gradient Header -->
+            <div class="gradient-amber px-6 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
+                        <i data-lucide="refresh-cw" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-white">Update Balance</h2>
+                        <p id="balanceAccountName" class="text-sm text-white/80"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <form id="balanceForm" method="POST" class="space-y-5">
+                    <!-- New Balance -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Current Balance
+                        </label>
+                        <div class="flex items-center gap-3">
+                            <input type="text" id="newBalanceDisplay" data-format-number data-decimals="2" inputmode="decimal" required
+                                class="flex-1 px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all text-lg font-semibold tabular-nums text-right"
+                                placeholder="0,00">
+                            <input type="hidden" name="balance" id="newBalance">
+                            <span id="balanceCurrency" class="text-sm text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap"></span>
+                        </div>
+                        <p class="mt-2 text-xs text-gray-400">Enter the total current value of this account</p>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex gap-3 pt-2">
+                        <button type="button" onclick="closeBalanceModal()" class="flex-1 px-4 py-2.5 text-xs font-medium rounded-lg border-2 border-gray-200 dark:border-dark-border text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-hover transition-all">
+                            Cancel
+                        </button>
+                        <button type="submit" class="flex-1 px-4 py-2.5 text-xs font-medium rounded-lg gradient-amber text-white shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transition-all">
+                            Update
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openCreateModal() {
+    document.getElementById('modalTitle').textContent = 'New Account';
+    document.getElementById('accountForm').action = '/accounts';
+    document.getElementById('accountForm').reset();
+    document.getElementById('statusField').classList.add('hidden');
+    document.getElementById('accountModal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('accountModal').classList.add('hidden');
+}
+
+function editAccount(id, name, currency, categoryId, notes, isLiability, isActive) {
+    document.getElementById('modalTitle').textContent = 'Edit Account';
+    document.getElementById('accountForm').action = '/accounts/' + id;
+    document.getElementById('accountId').value = id;
+    document.getElementById('accountName').value = name;
+    document.getElementById('accountCurrency').value = currency;
+    document.getElementById('accountCategory').value = categoryId || '';
+    document.getElementById('accountNotes').value = notes || '';
+
+    // Set account type
+    if (isLiability) {
+        document.getElementById('typeLiability').checked = true;
+    } else {
+        document.getElementById('typeAsset').checked = true;
+    }
+
+    // Show and set status
+    document.getElementById('statusField').classList.remove('hidden');
+    document.getElementById('accountActive').checked = isActive;
+
+    document.getElementById('accountModal').classList.remove('hidden');
+}
+
+function openBalanceModal(id, name, currentBalance, currency) {
+    document.getElementById('balanceForm').action = '/accounts/' + id + '/balance';
+    document.getElementById('balanceAccountName').textContent = name;
+    // Set hidden value for form submission
+    document.getElementById('newBalance').value = currentBalance;
+    // Set formatted display value
+    const displayInput = document.getElementById('newBalanceDisplay');
+    displayInput.value = NumberFormat.format(currentBalance, 2);
+    document.getElementById('balanceCurrency').textContent = currency;
+    document.getElementById('balanceModal').classList.remove('hidden');
+    // Initialize formatting for this input
+    NumberFormat.initInput(displayInput);
+    // Focus and select the input
+    setTimeout(() => {
+        displayInput.focus();
+        displayInput.select();
+    }, 100);
+}
+
+function closeBalanceModal() {
+    document.getElementById('balanceModal').classList.add('hidden');
+}
+
+// Close modals on escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeModal();
+        closeBalanceModal();
+    }
+});
+</script>
+{{end}}

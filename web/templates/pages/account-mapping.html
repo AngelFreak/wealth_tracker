@@ -1,0 +1,547 @@
+{{define "content"}}
+<div class="space-y-6 max-w-3xl" x-data="accountMapping({{.Connection.ID}}, {{.NeedsFetch}}, {{.ExistingMappingsJSON}}, '{{.Connection.BrokerType}}')">
+    <!-- Page Header -->
+    <div class="flex items-center gap-4">
+        <a href="/settings/connections/{{.Connection.ID}}" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-hover transition-all">
+            <i data-lucide="arrow-left" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+        </a>
+        <div>
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
+                Map Accounts
+            </h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Link your {{.Connection.BrokerType}} accounts to local accounts</p>
+        </div>
+    </div>
+
+    <!-- MitID QR Code Overlay -->
+    <div x-show="loading || errorMsg || successMsg" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-dark-surface rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl">
+            <!-- Success State -->
+            <template x-if="successMsg">
+                <div>
+                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                        <i data-lucide="check-circle" class="w-8 h-8 text-emerald-500"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Accounts Retrieved!</h3>
+                    <p class="text-gray-600 dark:text-gray-400 mb-4 text-sm" x-text="successMsg"></p>
+                </div>
+            </template>
+            <!-- Error State -->
+            <template x-if="errorMsg && !successMsg">
+                <div>
+                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
+                        <i data-lucide="alert-circle" class="w-8 h-8 text-red-500"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">Connection Error</h3>
+                    <p class="text-gray-600 dark:text-gray-400 mb-4 text-sm" x-text="errorMsg"></p>
+                    <!-- Specific error help -->
+                    <template x-if="errorType === 'ip_blocked'">
+                        <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mb-4 text-left">
+                            <p class="text-xs text-amber-600 dark:text-amber-400">
+                                <strong>IP Blocked:</strong> MitID has temporarily blocked your IP address due to too many requests. Please wait 15-30 minutes and try again.
+                            </p>
+                        </div>
+                    </template>
+                    <template x-if="errorType === 'parallel_sessions'">
+                        <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mb-4 text-left">
+                            <p class="text-xs text-amber-600 dark:text-amber-400">
+                                <strong>Session Conflict:</strong> Multiple login attempts were detected. Please wait a moment and try again.
+                            </p>
+                        </div>
+                    </template>
+                    <template x-if="errorType === 'timeout'">
+                        <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 mb-4 text-left">
+                            <p class="text-xs text-amber-600 dark:text-amber-400">
+                                <strong>Timeout:</strong> The authentication request timed out. Make sure to scan the QR code and approve in your MitID app within 2 minutes.
+                            </p>
+                        </div>
+                    </template>
+                    <div class="flex gap-3 justify-center">
+                        <button @click="goBack()" class="px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 dark:bg-dark-hover text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-dark-border transition-all">
+                            Back to Connection
+                        </button>
+                        <button @click="retryFetch()" class="px-4 py-2 text-sm font-medium rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 transition-all">
+                            Try Again
+                        </button>
+                    </div>
+                </div>
+            </template>
+            <!-- QR Code Display -->
+            <template x-if="qrReady && !errorMsg && !successMsg">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Scan with MitID App</h3>
+                    <div class="bg-white p-4 rounded-lg inline-block mb-4">
+                        <img :src="qrUrl + '?t=' + Date.now()"
+                             alt="MitID QR Code"
+                             class="w-48 h-48"
+                             x-effect="if(qrReady) { setInterval(() => $el.src = qrUrl + '?t=' + Date.now(), 1000) }">
+                    </div>
+                    <p class="text-gray-600 dark:text-gray-400 text-sm mb-2">
+                        Open your <strong>MitID app</strong> and scan this QR code
+                    </p>
+                    <div class="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                        <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+                        <span>Waiting for approval...</span>
+                    </div>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-4">
+                        This may take up to 2 minutes.
+                    </p>
+                    <button @click="cancelFetch()" class="mt-4 px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                        Cancel
+                    </button>
+                </div>
+            </template>
+            <!-- Loading State (before QR is ready) -->
+            <template x-if="loading && !qrReady && !errorMsg && !successMsg">
+                <div>
+                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-500/10 flex items-center justify-center">
+                        <i data-lucide="loader-2" class="w-8 h-8 text-blue-500 animate-spin"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-2" x-text="brokerType === 'saxo' ? 'Connecting to Saxo...' : 'Connecting to MitID...'"></h3>
+                    <p class="text-gray-600 dark:text-gray-400 mb-4">
+                        Please wait while we establish a secure connection.
+                    </p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400" x-text="status"></p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-4">
+                        This may take up to 2 minutes.
+                    </p>
+                    <button @click="cancelFetch()" class="mt-4 px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                        Cancel
+                    </button>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Error display for server-rendered errors -->
+    {{if .Error}}
+    <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+        <div class="flex items-start gap-2">
+            <i data-lucide="alert-circle" class="w-5 h-5 text-red-500 mt-0.5"></i>
+            <div>
+                <p class="text-sm text-red-400 font-medium">Connection Error</p>
+                <p class="text-xs text-red-400/80 mt-1">{{.Error}}</p>
+                <p class="text-xs text-red-400/60 mt-2">If this is a MitID timeout, try again and approve the login request in your MitID app within 2 minutes.</p>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Accounts form - shown after AJAX fetch or with server-rendered data -->
+    <template x-if="accounts && accounts.length > 0">
+        <form action="/settings/connections/{{.Connection.ID}}/accounts" method="POST" class="space-y-6">
+            <!-- Instructions -->
+            <div class="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                <div class="flex items-start gap-2">
+                    <i data-lucide="info" class="w-5 h-5 text-blue-500 mt-0.5"></i>
+                    <div>
+                        <p class="text-sm text-blue-400 font-medium">How it works</p>
+                        <p class="text-xs text-blue-400/80 mt-1">Select which local account each broker account should sync to. When you sync, holdings will be imported and the account balance will be updated automatically.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- External Accounts -->
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+                <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
+                    <div class="w-10 h-10 rounded-xl gradient-blue flex items-center justify-center">
+                        <i data-lucide="briefcase" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Broker Accounts</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Found <span x-text="accounts.length"></span> account(s) in {{.Connection.BrokerType}}</p>
+                    </div>
+                </div>
+
+                <div class="p-6 space-y-4">
+                    <template x-for="(account, index) in accounts" :key="index">
+                        <div class="p-4 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border">
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                                        <i data-lucide="wallet" class="w-5 h-5 text-blue-500"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white" x-text="getAccountName(account)"></p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                                            Account #<span x-text="getAccountNumber(account)"></span> &middot; <span x-text="getAccountType(account)"></span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Hidden field for account name -->
+                            <input type="hidden" :name="'name_' + getAccountKey(account)" :value="getAccountName(account)">
+
+                            <!-- Mapping Selection -->
+                            <div class="mt-4">
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                    Map to Local Account
+                                </label>
+                                <select :name="'mapping_' + getAccountKey(account)" class="select">
+                                    <option value="">-- Don't sync this account --</option>
+                                    {{range .LocalAccounts}}
+                                    <option value="{{.ID}}"
+                                        :selected="existingMappings[String(getAccountKey(account))]?.local_account_id === {{.ID}}">
+                                        {{.Name}} ({{.Currency}})
+                                    </option>
+                                    {{end}}
+                                </select>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Create New Account Option -->
+            <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                <div class="flex items-start gap-2">
+                    <i data-lucide="lightbulb" class="w-5 h-5 text-amber-500 mt-0.5"></i>
+                    <div>
+                        <p class="text-sm text-amber-400 font-medium">Need a new account?</p>
+                        <p class="text-xs text-amber-400/80 mt-1">
+                            If you don't have a local account to map to,
+                            <a href="/accounts" class="underline hover:text-amber-300">create one first</a>
+                            and then come back here to set up the mapping.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center justify-between">
+                <a href="/settings/connections/{{.Connection.ID}}"
+                   class="px-4 py-2.5 text-sm font-medium rounded-xl text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all">
+                    Cancel
+                </a>
+                <button type="submit"
+                        class="px-6 py-2.5 text-sm font-medium rounded-xl gradient-indigo text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all flex items-center gap-2">
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                    Save Mappings
+                </button>
+            </div>
+        </form>
+    </template>
+
+    <!-- No Accounts Found (after fetch) -->
+    <template x-if="!loading && accounts && accounts.length === 0">
+        <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-12 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-dark-hover mx-auto flex items-center justify-center mb-4">
+                <i data-lucide="search-x" class="w-8 h-8 text-gray-400"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">No accounts found</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                We couldn't find any accounts in your broker. This might be a connection issue or the account might be empty.
+            </p>
+            <a href="/settings/connections/{{.Connection.ID}}"
+               class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                Back to Connection
+            </a>
+        </div>
+    </template>
+
+    <!-- Server-rendered accounts (fallback when AJAX isn't needed) -->
+    {{if .ExternalAccounts}}
+    <form action="/settings/connections/{{.Connection.ID}}/accounts" method="POST" class="space-y-6">
+        <!-- Instructions -->
+        <div class="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+            <div class="flex items-start gap-2">
+                <i data-lucide="info" class="w-5 h-5 text-blue-500 mt-0.5"></i>
+                <div>
+                    <p class="text-sm text-blue-400 font-medium">How it works</p>
+                    <p class="text-xs text-blue-400/80 mt-1">Select which local account each broker account should sync to. When you sync, holdings will be imported and the account balance will be updated automatically.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- External Accounts -->
+        <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+            <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
+                <div class="w-10 h-10 rounded-xl gradient-blue flex items-center justify-center">
+                    <i data-lucide="briefcase" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Broker Accounts</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Found {{len .ExternalAccounts}} account(s) in {{.Connection.BrokerType}}</p>
+                </div>
+            </div>
+
+            <div class="p-6 space-y-4">
+                {{range .ExternalAccounts}}
+                <div class="p-4 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                                <i data-lucide="wallet" class="w-5 h-5 text-blue-500"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{.Alias}}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">
+                                    Account #{{.AccNO}} &middot; {{.Type}}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hidden field for account name -->
+                    <input type="hidden" name="name_{{.AccID}}" value="{{.Alias}}">
+
+                    <!-- Mapping Selection -->
+                    <div class="mt-4">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Map to Local Account
+                        </label>
+                        <select name="mapping_{{.AccID}}" class="select">
+                            <option value="">-- Don't sync this account --</option>
+                            {{$extID := .AccID}}
+                            {{$existingMappings := $.ExistingMappings}}
+                            {{range $.LocalAccounts}}
+                            <option value="{{.ID}}"
+                                {{if index $existingMappings $extID}}
+                                    {{if eq (index $existingMappings $extID).LocalAccountID .ID}}selected{{end}}
+                                {{end}}>
+                                {{.Name}} ({{.Currency}})
+                            </option>
+                            {{end}}
+                        </select>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Create New Account Option -->
+        <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+            <div class="flex items-start gap-2">
+                <i data-lucide="lightbulb" class="w-5 h-5 text-amber-500 mt-0.5"></i>
+                <div>
+                    <p class="text-sm text-amber-400 font-medium">Need a new account?</p>
+                    <p class="text-xs text-amber-400/80 mt-1">
+                        If you don't have a local account to map to,
+                        <a href="/accounts" class="underline hover:text-amber-300">create one first</a>
+                        and then come back here to set up the mapping.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-between">
+            <a href="/settings/connections/{{.Connection.ID}}"
+               class="px-4 py-2.5 text-sm font-medium rounded-xl text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all">
+                Cancel
+            </a>
+            <button type="submit"
+                    class="px-6 py-2.5 text-sm font-medium rounded-xl gradient-indigo text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all flex items-center gap-2">
+                <i data-lucide="check" class="w-4 h-4"></i>
+                Save Mappings
+            </button>
+        </div>
+    </form>
+    {{end}}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+});
+
+// Account Mapping Alpine.js component
+function accountMapping(connectionId, needsFetch, existingMappingsData, brokerType) {
+    return {
+        connectionId: connectionId,
+        brokerType: brokerType || 'nordnet',
+        loading: false,
+        qrReady: false,
+        status: 'Initializing...',
+        errorMsg: null,
+        errorType: null,
+        successMsg: null,
+        accounts: null,
+        existingMappings: existingMappingsData || {},
+        qrUrl: `/settings/connections/${connectionId}/mitid/qr`,
+        statusUrl: `/settings/connections/${connectionId}/mitid/status`,
+        saxoStatusUrl: `/settings/connections/${connectionId}/saxo/status`,
+        fetchUrl: `/settings/connections/${connectionId}/fetch-accounts`,
+        pollInterval: null,
+
+        init() {
+            // Auto-start fetch if needed
+            if (needsFetch) {
+                this.startFetch();
+            }
+        },
+
+        async startFetch() {
+            this.loading = true;
+            this.qrReady = false;
+            this.errorMsg = null;
+            this.errorType = null;
+            this.successMsg = null;
+            this.status = this.brokerType === 'saxo' ? 'Connecting to Saxo...' : 'Starting MitID authentication...';
+
+            // Re-initialize icons after state change
+            setTimeout(() => lucide.createIcons(), 50);
+
+            // Start polling for QR code status
+            this.startPolling();
+
+            // Start the fetch request in background
+            try {
+                const response = await fetch(this.fetchUrl, { method: 'POST' });
+                this.stopPolling();
+
+                if (response.ok) {
+                    const accounts = await response.json();
+                    this.accounts = accounts;
+                    this.loading = false;
+                    this.successMsg = `Found ${accounts.length} account(s)`;
+
+                    // Re-initialize icons and hide success after delay
+                    setTimeout(() => {
+                        lucide.createIcons();
+                        this.successMsg = null;
+                    }, 1500);
+                } else {
+                    const text = await response.text();
+                    this.handleError(text);
+                }
+            } catch (err) {
+                this.stopPolling();
+                this.handleError(err.message);
+            }
+        },
+
+        handleError(errorText) {
+            this.loading = false;
+            this.qrReady = false;
+            this.errorMsg = this.parseErrorMessage(errorText);
+            this.errorType = this.detectErrorType(errorText);
+
+            // Re-initialize icons for error state
+            setTimeout(() => lucide.createIcons(), 50);
+        },
+
+        parseErrorMessage(text) {
+            let msg = text;
+
+            if (msg.includes('client_ip_blocked')) {
+                return 'Your IP address has been temporarily blocked by MitID.';
+            }
+            if (msg.includes('parallel_sessions_detected') || msg.includes('to steder samtidigt')) {
+                return 'Multiple login sessions detected. Please wait and try again.';
+            }
+            if (msg.includes('timed out') || msg.includes('timeout')) {
+                return 'Authentication timed out. Please try again and approve quickly in your MitID app.';
+            }
+            if (msg.includes('authenticator_cannot_be_started')) {
+                return 'Could not start MitID authentication. Please try again in a moment.';
+            }
+            if (msg.includes('identity_not_found')) {
+                return 'MitID user not found. Please check your MitID username.';
+            }
+
+            msg = msg.replace(/^MitID authentication failed:\s*/gi, '');
+            msg = msg.replace(/^exit status \d+:\s*/gi, '');
+
+            if (msg.length > 200) {
+                msg = msg.substring(0, 200) + '...';
+            }
+
+            return msg || 'An unknown error occurred';
+        },
+
+        detectErrorType(text) {
+            if (text.includes('client_ip_blocked')) {
+                return 'ip_blocked';
+            }
+            if (text.includes('parallel_sessions') || text.includes('to steder samtidigt')) {
+                return 'parallel_sessions';
+            }
+            if (text.includes('timed out') || text.includes('timeout') || text.includes('DeadlineExceeded')) {
+                return 'timeout';
+            }
+            return 'generic';
+        },
+
+        startPolling() {
+            // Use different status endpoint based on broker type
+            const pollUrl = this.brokerType === 'saxo' ? this.saxoStatusUrl : this.statusUrl;
+
+            this.pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(pollUrl);
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.status = data.status;
+
+                        if (data.status === 'qr_ready') {
+                            this.qrReady = true;
+                        } else if (data.status === 'complete') {
+                            this.stopPolling();
+                        } else if (data.status === 'failed') {
+                            this.stopPolling();
+                            this.status = 'Authentication failed';
+                        }
+                    }
+                } catch (e) {
+                    // Ignore polling errors
+                }
+            }, 500);
+        },
+
+        stopPolling() {
+            if (this.pollInterval) {
+                clearInterval(this.pollInterval);
+                this.pollInterval = null;
+            }
+        },
+
+        cancelFetch() {
+            this.stopPolling();
+            this.loading = false;
+            this.qrReady = false;
+            this.errorMsg = null;
+            this.errorType = null;
+            this.successMsg = null;
+            // Go back to connection detail
+            window.location.href = `/settings/connections/${this.connectionId}`;
+        },
+
+        retryFetch() {
+            this.errorMsg = null;
+            this.errorType = null;
+            this.startFetch();
+        },
+
+        goBack() {
+            window.location.href = `/settings/connections/${this.connectionId}`;
+        },
+
+        // Helper functions to access generic ExternalAccount fields
+        getAccountKey(account) {
+            // ID is the unique identifier (AccountKey for Saxo, accid for Nordnet)
+            return account.ID || '';
+        },
+
+        getAccountName(account) {
+            // Name is the display name
+            return account.Name || '';
+        },
+
+        getAccountNumber(account) {
+            // AccountNumber is the human-readable account number
+            return account.AccountNumber || account.ID || '';
+        },
+
+        getAccountType(account) {
+            // Type is the account type
+            return account.Type || '';
+        }
+    };
+}
+</script>
+{{end}}

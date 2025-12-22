@@ -1,0 +1,250 @@
+{{define "content"}}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
+                Asset Categories
+            </h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Organize your wealth into meaningful groups</p>
+        </div>
+        <button onclick="document.getElementById('createModal').classList.remove('hidden')" class="btn-primary text-xs">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            New Category
+        </button>
+    </div>
+
+    {{if .Error}}
+    <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+        <p class="text-sm text-red-400">{{.Error}}</p>
+    </div>
+    {{end}}
+
+    <!-- Categories Grid -->
+    {{if .Categories}}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {{range .Categories}}
+        <div class="card group relative overflow-visible">
+            <!-- Color accent bar -->
+            <div class="absolute top-0 left-0 right-0 h-1 rounded-t-xl" style="background-color: {{.Color}};"></div>
+
+            <div class="p-5 pt-6">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-center gap-3">
+                        <!-- Icon circle with category color -->
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background-color: {{.Color}}20;">
+                            {{if .Icon}}
+                            <i class="fa-solid fa-{{.Icon}} text-lg" style="color: {{.Color}};"></i>
+                            {{else}}
+                            <svg class="w-5 h-5" style="color: {{.Color}};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                            </svg>
+                            {{end}}
+                        </div>
+                        <div>
+                            <h3 class="font-medium text-gray-900 dark:text-white">{{.Name}}</h3>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                {{.AccountCount}} account{{if ne .AccountCount 1}}s{{end}}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Actions dropdown -->
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open" class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-hover opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                            </svg>
+                        </button>
+                        <div x-show="open" @click.away="open = false"
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="opacity-0 scale-95"
+                             x-transition:enter-end="opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-75"
+                             x-transition:leave-start="opacity-100 scale-100"
+                             x-transition:leave-end="opacity-0 scale-95"
+                             class="absolute right-0 mt-1 w-36 bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border rounded-xl shadow-xl py-1.5 z-50"
+                             style="display: none;">
+                            <button onclick="editCategory({{.ID}}, '{{.Name}}', '{{.Color}}', '{{.Icon}}', {{.SortOrder}})" class="w-full px-3 py-2 flex items-center gap-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-hover">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                </svg>
+                                Edit
+                            </button>
+                            <div class="border-t border-gray-100 dark:border-dark-border my-1"></div>
+                            <form action="/categories/{{.ID}}" method="POST" x-ref="deleteForm{{.ID}}"
+                                  @submit.prevent="$store.confirm.show({
+                                      title: 'Delete Category',
+                                      message: 'Are you sure you want to delete this category? Accounts will be unlinked.',
+                                      type: 'danger',
+                                      confirmText: 'Delete',
+                                      form: $refs.deleteForm{{.ID}}
+                                  })">
+                                <input type="hidden" name="_method" value="DELETE">
+                                <button type="submit" class="w-full px-3 py-2 flex items-center gap-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                    Delete
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sort order indicator -->
+                <div class="mt-4 flex items-center gap-2 text-xs text-gray-400">
+                    <span class="px-2 py-0.5 rounded bg-gray-100 dark:bg-dark-hover">Order: {{.SortOrder}}</span>
+                </div>
+            </div>
+        </div>
+        {{end}}
+    </div>
+    {{else}}
+    <!-- Empty State -->
+    <div class="card p-12 text-center">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 flex items-center justify-center">
+            <svg class="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+            </svg>
+        </div>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            No categories yet
+        </h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+            Categories help you organize your accounts into logical groups like Stocks, Crypto, Real Estate, or Cash.
+        </p>
+        <button onclick="document.getElementById('createModal').classList.remove('hidden')" class="btn-primary text-sm">
+            Create your first category
+        </button>
+    </div>
+    {{end}}
+</div>
+
+<!-- Create/Edit Modal -->
+<div id="createModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex min-h-full items-center justify-center p-4">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal()"></div>
+
+        <!-- Modal -->
+        <div class="relative bg-white dark:bg-dark-surface rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-dark-border overflow-hidden">
+            <!-- Gradient Header -->
+            <div class="gradient-purple px-6 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
+                        <i data-lucide="tag" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <h2 id="modalTitle" class="text-xl font-semibold text-white">
+                        New Category
+                    </h2>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <form id="categoryForm" action="/categories" method="POST" class="space-y-5">
+                    <input type="hidden" id="categoryId" name="id" value="">
+
+                    <!-- Name -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Name
+                        </label>
+                        <input type="text" name="name" id="categoryName" required
+                            class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+                            placeholder="e.g., Stocks, Crypto, Real Estate">
+                    </div>
+
+                    <!-- Color -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Color
+                        </label>
+                        <div class="flex items-center gap-3">
+                            <input type="color" name="color" id="categoryColor" value="#6366f1"
+                                class="w-12 h-12 rounded-xl cursor-pointer border-0 bg-transparent">
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" onclick="setColor('#6366f1')" class="w-8 h-8 rounded-lg bg-indigo-500 hover:ring-2 hover:ring-offset-2 hover:ring-indigo-500 dark:hover:ring-offset-dark-card transition-all"></button>
+                                <button type="button" onclick="setColor('#f59e0b')" class="w-8 h-8 rounded-lg bg-amber-500 hover:ring-2 hover:ring-offset-2 hover:ring-amber-500 dark:hover:ring-offset-dark-card transition-all"></button>
+                                <button type="button" onclick="setColor('#22c55e')" class="w-8 h-8 rounded-lg bg-green-500 hover:ring-2 hover:ring-offset-2 hover:ring-green-500 dark:hover:ring-offset-dark-card transition-all"></button>
+                                <button type="button" onclick="setColor('#ef4444')" class="w-8 h-8 rounded-lg bg-red-500 hover:ring-2 hover:ring-offset-2 hover:ring-red-500 dark:hover:ring-offset-dark-card transition-all"></button>
+                                <button type="button" onclick="setColor('#8b5cf6')" class="w-8 h-8 rounded-lg bg-violet-500 hover:ring-2 hover:ring-offset-2 hover:ring-violet-500 dark:hover:ring-offset-dark-card transition-all"></button>
+                                <button type="button" onclick="setColor('#06b6d4')" class="w-8 h-8 rounded-lg bg-cyan-500 hover:ring-2 hover:ring-offset-2 hover:ring-cyan-500 dark:hover:ring-offset-dark-card transition-all"></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Icon (optional) -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Icon (optional)
+                        </label>
+                        <input type="text" name="icon" id="categoryIcon"
+                            class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+                            placeholder="FontAwesome icon name, e.g., chart-line">
+                        <p class="mt-1 text-xs text-gray-400">Uses FontAwesome solid icons</p>
+                    </div>
+
+                    <!-- Sort Order -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Sort Order
+                        </label>
+                        <input type="number" name="sort_order" id="categorySortOrder" value="0" min="0"
+                            class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all">
+                        <p class="mt-1 text-xs text-gray-400">Lower numbers appear first</p>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex gap-3 pt-2">
+                        <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2.5 text-xs font-medium rounded-lg border-2 border-gray-200 dark:border-dark-border text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-hover transition-all">
+                            Cancel
+                        </button>
+                        <button type="submit" class="flex-1 px-4 py-2.5 text-xs font-medium rounded-lg gradient-purple text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all">
+                            Save Category
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- FontAwesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<script>
+function setColor(color) {
+    document.getElementById('categoryColor').value = color;
+}
+
+function closeModal() {
+    document.getElementById('createModal').classList.add('hidden');
+    // Reset form
+    document.getElementById('categoryForm').reset();
+    document.getElementById('categoryForm').action = '/categories';
+    document.getElementById('modalTitle').textContent = 'New Category';
+    document.getElementById('categoryId').value = '';
+}
+
+function editCategory(id, name, color, icon, sortOrder) {
+    document.getElementById('modalTitle').textContent = 'Edit Category';
+    document.getElementById('categoryForm').action = '/categories/' + id;
+    document.getElementById('categoryId').value = id;
+    document.getElementById('categoryName').value = name;
+    document.getElementById('categoryColor').value = color || '#6366f1';
+    document.getElementById('categoryIcon').value = icon || '';
+    document.getElementById('categorySortOrder').value = sortOrder || 0;
+    document.getElementById('createModal').classList.remove('hidden');
+}
+
+// Close modal on escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeModal();
+    }
+});
+</script>
+{{end}}

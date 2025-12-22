@@ -1,0 +1,294 @@
+{{define "content"}}
+<div class="space-y-6 max-w-2xl">
+    <!-- Page Header -->
+    <div class="flex items-center gap-4">
+        <a href="/settings/connections" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-hover transition-all">
+            <i data-lucide="arrow-left" class="w-5 h-5 text-gray-500 dark:text-gray-400"></i>
+        </a>
+        <div>
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
+                {{if .IsNew}}Add Broker Connection{{else}}Edit Connection{{end}}
+            </h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Connect your brokerage account to sync your portfolio</p>
+        </div>
+    </div>
+
+    {{if .Error}}
+    <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+        <div class="flex items-center gap-2">
+            <i data-lucide="alert-circle" class="w-5 h-5 text-red-500"></i>
+            <p class="text-sm text-red-400">{{.Error}}</p>
+        </div>
+    </div>
+    {{end}}
+
+    <form action="{{if .IsNew}}/settings/connections{{else}}/settings/connections/{{.Connection.ID}}/edit{{end}}" method="POST" class="space-y-6">
+        <!-- Broker Selection -->
+        <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+            <!-- Header -->
+            <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
+                <div class="w-10 h-10 rounded-xl gradient-indigo flex items-center justify-center">
+                    <i data-lucide="briefcase" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Broker</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Select your brokerage</p>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6 space-y-5">
+                <!-- Broker Type -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Broker
+                    </label>
+                    {{if .IsNew}}
+                    <select name="broker_type" id="broker_type" required class="select" onchange="updateBrokerFields()">
+                        <option value="nordnet" selected>Nordnet</option>
+                        <option value="saxo">Saxo Investor</option>
+                    </select>
+                    <p class="mt-1 text-xs text-gray-400">Select your brokerage platform</p>
+                    {{else}}
+                    <input type="hidden" name="broker_type" value="{{.Connection.BrokerType}}">
+                    <input type="text" id="broker_type" value="{{if eq .Connection.BrokerType "nordnet"}}Nordnet{{else}}Saxo Investor{{end}}" disabled
+                        class="w-full px-4 py-3 rounded-xl bg-gray-100 dark:bg-dark-hover border border-gray-200 dark:border-dark-border text-gray-500 dark:text-gray-400 cursor-not-allowed">
+                    <p class="mt-1 text-xs text-gray-400">Broker type cannot be changed</p>
+                    {{end}}
+                </div>
+
+                <!-- Country -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Country
+                    </label>
+                    <select name="country" id="country" required class="select">
+                        <option value="dk" selected>Denmark (dk)</option>
+                        <option value="se" id="country_se">Sweden (se)</option>
+                        <option value="no" id="country_no">Norway (no)</option>
+                        <option value="fi" id="country_fi">Finland (fi)</option>
+                    </select>
+                    <p class="mt-1 text-xs text-gray-400">Select the country where your account is registered</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- MitID Settings (Nordnet only) -->
+        <div id="mitid_section" class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+            <!-- Header -->
+            <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
+                <div class="w-10 h-10 rounded-xl gradient-amber flex items-center justify-center">
+                    <i data-lucide="smartphone" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">MitID Authentication</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Your MitID identifier for Nordnet login</p>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6 space-y-5">
+                <!-- MitID User ID -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        MitID User ID
+                    </label>
+                    <input type="text" name="username" id="username_input"
+                        value="{{if .Connection}}{{.Connection.Username}}{{end}}"
+                        class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                        placeholder="Your MitID user identifier (e.g., your CPR-linked ID)">
+                    <p class="mt-1 text-xs text-gray-400">This is the username you use when logging in with MitID</p>
+                </div>
+
+                <!-- CPR Number -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        CPR Number
+                    </label>
+                    <input type="password" name="cpr" id="cpr_input"
+                        value="{{if .Connection}}{{.Connection.CPR}}{{end}}"
+                        pattern="\d{10}"
+                        maxlength="10"
+                        class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                        placeholder="10 digits (DDMMYYXXXX)">
+                    <p class="mt-1 text-xs text-gray-400">Required for Signicat identity verification (stored locally, never sent to our servers)</p>
+                </div>
+
+                <!-- MitID Information -->
+                <div class="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                    <div class="flex items-start gap-2">
+                        <i data-lucide="info" class="w-5 h-5 text-blue-500 mt-0.5"></i>
+                        <div>
+                            <p class="text-sm text-blue-400 font-medium">How MitID Works</p>
+                            <p class="text-xs text-blue-400/80 mt-1">Each time you sync your portfolio, you'll need to approve the login in your MitID app. Your CPR is used locally for Signicat verification and is not stored on any external servers.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- OAuth Settings (Saxo only) -->
+        <div id="oauth_section" class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden hidden">
+            <!-- Header -->
+            <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
+                <div class="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center">
+                    <i data-lucide="globe" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Saxo API Configuration</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Your Saxo developer app credentials</p>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6 space-y-5">
+                <!-- Setup Guide -->
+                <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                    <div class="flex items-start gap-2">
+                        <i data-lucide="book-open" class="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0"></i>
+                        <div>
+                            <p class="text-sm text-amber-400 font-medium mb-2">Setup Guide</p>
+                            <ol class="text-xs text-amber-400/80 space-y-1.5 list-decimal list-inside">
+                                <li>Go to <a href="https://www.developer.saxo/" target="_blank" class="underline hover:text-amber-300">developer.saxo</a> and create an account</li>
+                                <li>Create a new <strong>Live</strong> application (not Simulation)</li>
+                                <li>In the app settings, add this Redirect URL: <code class="bg-amber-500/20 px-1 rounded">http://localhost:33847/callback</code></li>
+                                <li>Copy the <strong>App Key</strong> and <strong>App Secret</strong> from your app dashboard</li>
+                                <li>Paste them in the fields below</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Saxo App Key -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Saxo App Key
+                    </label>
+                    <input type="text" name="app_key" id="app_key_input"
+                        value="{{if .Connection}}{{.Connection.AppKey}}{{end}}"
+                        class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                        placeholder="Your Saxo App Key (from developer portal)">
+                    <p class="mt-1 text-xs text-gray-400">Found in your app's details on the <a href="https://www.developer.saxo/" target="_blank" class="text-indigo-400 hover:text-indigo-300">Saxo Developer Portal</a></p>
+                </div>
+
+                <!-- Saxo App Secret (optional) -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        App Secret <span class="text-gray-400 font-normal">(optional)</span>
+                    </label>
+                    <input type="password" name="app_secret" id="app_secret_input"
+                        value="{{if .Connection}}{{.Connection.AppSecret}}{{end}}"
+                        class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                        placeholder="Your Saxo App Secret (if your app has one)">
+                    <p class="mt-1 text-xs text-gray-400">Only required if your Saxo app has a client secret configured. Leave empty for PKCE-only apps.</p>
+                </div>
+
+                <!-- Saxo Redirect URI -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Redirect URI
+                    </label>
+                    <input type="text" name="redirect_uri" id="redirect_uri_input"
+                        value="{{if .Connection}}{{.Connection.RedirectURI}}{{else}}http://localhost:33847/callback{{end}}"
+                        class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                        placeholder="http://localhost:33847/callback">
+                    <p class="mt-1 text-xs text-gray-400">Must match the redirect URI registered in your Saxo app. For local development, use <code class="text-indigo-400">http://localhost:33847/callback</code></p>
+                </div>
+
+                <!-- OAuth Information -->
+                <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4">
+                    <div class="flex items-start gap-2">
+                        <i data-lucide="info" class="w-5 h-5 text-emerald-500 mt-0.5"></i>
+                        <div>
+                            <p class="text-sm text-emerald-400 font-medium">How Saxo Login Works</p>
+                            <p class="text-xs text-emerald-400/80 mt-1">When you sync your portfolio, a browser window will open for you to log in securely at Saxo's website. Your session will be cached for convenience.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-sm text-gray-500 dark:text-gray-400">
+                    <p>After creating this connection, you'll be able to:</p>
+                    <ul class="mt-2 space-y-1 list-disc list-inside">
+                        <li>Authenticate via your browser</li>
+                        <li>Map your Saxo accounts to local accounts</li>
+                        <li>Sync your portfolio positions automatically</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-between">
+            <a href="/settings/connections"
+               class="px-4 py-2.5 text-sm font-medium rounded-xl text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all">
+                Cancel
+            </a>
+            <button type="submit"
+                    class="px-6 py-2.5 text-sm font-medium rounded-xl gradient-indigo text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all flex items-center gap-2">
+                <i data-lucide="check" class="w-4 h-4"></i>
+                {{if .IsNew}}Connect{{else}}Save Changes{{end}}
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function updateBrokerFields() {
+    const brokerTypeEl = document.getElementById('broker_type');
+    // Handle both select (new) and input (edit) cases
+    const brokerType = brokerTypeEl.tagName === 'SELECT' ? brokerTypeEl.value : '{{if .Connection}}{{.Connection.BrokerType}}{{else}}nordnet{{end}}';
+    const mitidSection = document.getElementById('mitid_section');
+    const oauthSection = document.getElementById('oauth_section');
+    const usernameInput = document.getElementById('username_input');
+    const cprInput = document.getElementById('cpr_input');
+    const countrySelect = document.getElementById('country');
+
+    // Country options - Saxo is Denmark only for now
+    const countrySe = document.getElementById('country_se');
+    const countryNo = document.getElementById('country_no');
+    const countryFi = document.getElementById('country_fi');
+
+    if (brokerType === 'saxo' || brokerType === 'Saxo Investor') {
+        // Show OAuth section, hide MitID
+        mitidSection.classList.add('hidden');
+        oauthSection.classList.remove('hidden');
+
+        // Remove required from MitID fields
+        if (usernameInput) usernameInput.removeAttribute('required');
+        if (cprInput) cprInput.removeAttribute('required');
+
+        // Saxo is Denmark only
+        if (countrySelect) countrySelect.value = 'dk';
+        if (countrySe) countrySe.disabled = true;
+        if (countryNo) countryNo.disabled = true;
+        if (countryFi) countryFi.disabled = true;
+    } else {
+        // Show MitID section, hide OAuth
+        mitidSection.classList.remove('hidden');
+        oauthSection.classList.add('hidden');
+
+        // Add required to MitID fields
+        if (usernameInput) usernameInput.setAttribute('required', 'required');
+        if (cprInput) cprInput.setAttribute('required', 'required');
+
+        // Enable all countries for Nordnet
+        if (countrySe) countrySe.disabled = false;
+        if (countryNo) countryNo.disabled = false;
+        if (countryFi) countryFi.disabled = false;
+    }
+
+    // Re-render icons after DOM changes
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+    // Initialize form state
+    updateBrokerFields();
+});
+</script>
+{{end}}

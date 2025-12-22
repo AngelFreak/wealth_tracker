@@ -1,0 +1,331 @@
+{{define "content"}}
+<div class="space-y-6" x-data="compoundInterestCalc()">
+    <!-- Page Header -->
+    <div class="flex items-center gap-4">
+        <a href="/tools" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-hover transition-colors">
+            <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+        </a>
+        <div>
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
+                Compound Interest Calculator
+            </h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Project your savings growth over time</p>
+        </div>
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-6">
+        <!-- Input Form -->
+        <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+            <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
+                <div class="w-10 h-10 rounded-xl gradient-indigo flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Input Parameters</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Adjust values to see projections</p>
+                </div>
+            </div>
+
+            <div class="p-6 space-y-5">
+                <!-- Starting Amount -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Starting Amount (kr.)
+                    </label>
+                    <div class="relative">
+                        <input type="text" :value="formatInputNumber(principal)" @input="principal = parseInputNumber($event.target.value); calculate()"
+                            class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all tabular-nums"
+                            placeholder="100.000" inputmode="numeric">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                    </div>
+                </div>
+
+                <!-- Monthly Contribution -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Monthly Contribution (kr.)
+                    </label>
+                    <div class="relative">
+                        <input type="text" :value="formatInputNumber(monthlyContribution)" @input="monthlyContribution = parseInputNumber($event.target.value); calculate()"
+                            class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all tabular-nums"
+                            placeholder="5.000" inputmode="numeric">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                    </div>
+                </div>
+
+                <!-- Annual Return Rate -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Expected Annual Return (%)
+                    </label>
+                    <input type="number" x-model.number="annualRate" @input="calculate()"
+                        class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                        placeholder="7" min="0" max="50" step="0.1">
+                </div>
+
+                <!-- Time Period -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Investment Period (years)
+                    </label>
+                    <input type="number" x-model.number="years" @input="calculate()"
+                        class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                        placeholder="10" min="1" max="50" step="1">
+                </div>
+
+                <!-- Compounding Frequency -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Compounding Frequency
+                    </label>
+                    <select x-model.number="compoundFreq" @change="calculate()" class="select">
+                        <option value="12">Monthly</option>
+                        <option value="4">Quarterly</option>
+                        <option value="2">Semi-annually</option>
+                        <option value="1">Annually</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="space-y-6">
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Final Amount</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white mt-2" x-text="formatNumber(finalAmount) + ' kr.'"></p>
+                </div>
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Interest</p>
+                    <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-2" x-text="formatNumber(totalInterest) + ' kr.'"></p>
+                </div>
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Contributions</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white mt-2" x-text="formatNumber(totalContributions) + ' kr.'"></p>
+                </div>
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Interest Ratio</p>
+                    <p class="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-2" x-text="interestRatio.toFixed(1) + '%'"></p>
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Growth Projection</h3>
+                <div class="h-64">
+                    <canvas id="growthChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Year-by-Year Breakdown -->
+    <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-dark-border">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Year-by-Year Breakdown</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-dark-hover">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Year</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Starting Balance</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Contributions</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Interest Earned</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ending Balance</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-dark-border">
+                    <template x-for="row in yearlyBreakdown" :key="row.year">
+                        <tr class="hover:bg-gray-50 dark:hover:bg-dark-hover">
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white" x-text="row.year"></td>
+                            <td class="px-6 py-4 text-sm text-right text-gray-600 dark:text-gray-300" x-text="formatNumber(row.startBalance) + ' kr.'"></td>
+                            <td class="px-6 py-4 text-sm text-right text-gray-600 dark:text-gray-300" x-text="formatNumber(row.contributions) + ' kr.'"></td>
+                            <td class="px-6 py-4 text-sm text-right text-emerald-600 dark:text-emerald-400" x-text="formatNumber(row.interest) + ' kr.'"></td>
+                            <td class="px-6 py-4 text-sm text-right font-medium text-gray-900 dark:text-white" x-text="formatNumber(row.endBalance) + ' kr.'"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+function compoundInterestCalc() {
+    return {
+        principal: 100000,
+        monthlyContribution: 5000,
+        annualRate: 7,
+        years: 10,
+        compoundFreq: 12,
+
+        finalAmount: 0,
+        totalContributions: 0,
+        totalInterest: 0,
+        interestRatio: 0,
+        yearlyBreakdown: [],
+        chart: null,
+
+        init() {
+            this.calculate();
+        },
+
+        calculate() {
+            const P = this.principal || 0;
+            const PMT = this.monthlyContribution || 0;
+            const r = (this.annualRate || 0) / 100;
+            const n = this.compoundFreq || 12;
+            const t = this.years || 1;
+
+            // Calculate yearly breakdown
+            this.yearlyBreakdown = [];
+            let balance = P;
+            const yearlyContribution = PMT * 12;
+
+            const labels = ['Start'];
+            const balanceData = [P];
+            const contributionData = [P];
+
+            for (let year = 1; year <= t; year++) {
+                const startBalance = balance;
+
+                // Monthly compounding with contributions
+                for (let month = 1; month <= 12; month++) {
+                    // Add interest based on compounding frequency
+                    if (n === 12 || (n === 4 && month % 3 === 0) || (n === 2 && month % 6 === 0) || (n === 1 && month === 12)) {
+                        const periodsThisYear = n === 12 ? 1 : (n === 4 ? (month % 3 === 0 ? 1 : 0) : (n === 2 ? (month % 6 === 0 ? 1 : 0) : (month === 12 ? 1 : 0)));
+                        if (periodsThisYear > 0) {
+                            balance = balance * (1 + r / n);
+                        }
+                    }
+                    // Add monthly contribution
+                    balance += PMT;
+                }
+
+                // Simpler calculation for display accuracy
+                const endBalance = balance;
+                const contributions = yearlyContribution;
+                const interest = endBalance - startBalance - contributions;
+
+                this.yearlyBreakdown.push({
+                    year: year,
+                    startBalance: Math.round(startBalance),
+                    contributions: Math.round(contributions),
+                    interest: Math.round(interest),
+                    endBalance: Math.round(endBalance)
+                });
+
+                labels.push('Year ' + year);
+                balanceData.push(Math.round(balance));
+                contributionData.push(Math.round(P + yearlyContribution * year));
+            }
+
+            this.finalAmount = Math.round(balance);
+            this.totalContributions = Math.round(P + (PMT * 12 * t));
+            this.totalInterest = Math.round(this.finalAmount - this.totalContributions);
+            this.interestRatio = this.finalAmount > 0 ? (this.totalInterest / this.finalAmount) * 100 : 0;
+
+            // Update chart
+            this.updateChart(labels, balanceData, contributionData);
+        },
+
+        updateChart(labels, balanceData, contributionData) {
+            const ctx = document.getElementById('growthChart');
+            if (!ctx) return;
+
+            if (this.chart) {
+                this.chart.destroy();
+            }
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+            const textColor = isDark ? '#9CA3AF' : '#6B7280';
+
+            this.chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Total Balance',
+                            data: balanceData,
+                            borderColor: '#6366F1',
+                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Total Contributions',
+                            data: contributionData,
+                            borderColor: '#9CA3AF',
+                            backgroundColor: 'transparent',
+                            borderDash: [5, 5],
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: textColor }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toLocaleString('da-DK') + ' kr.';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: gridColor },
+                            ticks: { color: textColor }
+                        },
+                        y: {
+                            grid: { color: gridColor },
+                            ticks: {
+                                color: textColor,
+                                callback: function(value) {
+                                    return value.toLocaleString('da-DK') + ' kr.';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        },
+
+        formatNumber(n) {
+            return typeof NumberFormat !== 'undefined' ? NumberFormat.format(Math.round(n), 0) : Math.round(n).toLocaleString('da-DK');
+        },
+
+        formatInputNumber(n) {
+            if (n === 0 || n === '' || n === null || n === undefined) return '';
+            return typeof NumberFormat !== 'undefined' ? NumberFormat.format(n, 0) : Math.round(n).toLocaleString('da-DK');
+        },
+
+        parseInputNumber(str) {
+            if (!str) return 0;
+            if (typeof NumberFormat !== 'undefined') {
+                return NumberFormat.parse(str);
+            }
+            // Fallback: remove thousand separators (dot for da-DK)
+            const cleaned = str.replace(/\./g, '').replace(',', '.');
+            const num = parseFloat(cleaned);
+            return isNaN(num) ? 0 : num;
+        }
+    };
+}
+</script>
+{{end}}

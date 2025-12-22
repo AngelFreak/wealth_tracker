@@ -1,0 +1,193 @@
+{{define "content"}}
+<div class="space-y-6">
+    {{if .Impersonating}}
+    <div class="bg-amber-500/20 border border-amber-500/50 rounded-lg p-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <span class="text-amber-300 font-medium">You are impersonating another user</span>
+            </div>
+            <form action="/admin/return" method="POST">
+                <button type="submit" class="px-3 py-1.5 text-sm rounded bg-amber-500 text-white hover:bg-amber-600 transition-colors">
+                    Return to Admin
+                </button>
+            </form>
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Page Header -->
+    <div>
+        <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
+            Admin Dashboard
+        </h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">System overview and management</p>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid md:grid-cols-4 gap-4">
+        <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl gradient-indigo flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Users</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{.UserCount}}</p>
+                </div>
+            </div>
+        </div>
+
+        {{range .TableCounts}}
+        {{if eq .Name "accounts"}}
+        <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Accounts</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{.Count}}</p>
+                </div>
+            </div>
+        </div>
+        {{end}}
+        {{if eq .Name "transactions"}}
+        <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl gradient-amber flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Transactions</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{.Count}}</p>
+                </div>
+            </div>
+        </div>
+        {{end}}
+        {{if eq .Name "sessions"}}
+        <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl gradient-violet flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Sessions</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{.Count}}</p>
+                </div>
+            </div>
+        </div>
+        {{end}}
+        {{end}}
+    </div>
+
+    <!-- Quick Links -->
+    <div class="grid md:grid-cols-2 gap-6">
+        <a href="/admin/users" class="group">
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-6 hover:border-indigo-500 dark:hover:border-indigo-500 transition-all">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl gradient-indigo flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">User Management</h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">View, edit, and manage user accounts</p>
+                    </div>
+                </div>
+            </div>
+        </a>
+
+        <a href="/admin/database" class="group">
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-6 hover:border-emerald-500 dark:hover:border-emerald-500 transition-all">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl gradient-emerald flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400">Database Browser</h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">View and browse database tables</p>
+                    </div>
+                </div>
+            </div>
+        </a>
+
+        <a href="/admin/sql" class="group">
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-6 hover:border-amber-500 dark:hover:border-amber-500 transition-all">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl gradient-amber flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400">SQL Query</h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Execute SELECT queries on the database</p>
+                    </div>
+                </div>
+            </div>
+        </a>
+
+        <a href="/settings" class="group">
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-6 hover:border-violet-500 dark:hover:border-violet-500 transition-all">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl gradient-violet flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-400">Settings</h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Manage your account settings</p>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- All Tables Overview -->
+    <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-dark-border">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Database Tables</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-dark-hover">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Table</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Rows</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-dark-border">
+                    {{range .TableCounts}}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-dark-hover">
+                        <td class="px-6 py-4">
+                            <span class="font-medium text-gray-900 dark:text-white">{{.Name}}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right text-gray-600 dark:text-gray-300">{{.Count}}</td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="/admin/database/{{.Name}}" class="text-indigo-600 dark:text-indigo-400 hover:underline text-sm">View</a>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}

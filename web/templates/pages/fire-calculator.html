@@ -1,0 +1,1851 @@
+{{define "content"}}
+<div class="space-y-6" x-data="fireCalc({{.AccountData}})">
+    <!-- Page Header -->
+    <div class="flex items-center gap-4">
+        <a href="/tools" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-hover transition-colors">
+            <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+        </a>
+        <div>
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
+                FIRE Calculator (Denmark)
+            </h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Plan your path to Financial Independence and Early Retirement</p>
+        </div>
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-6">
+        <!-- LEFT COLUMN: Inputs -->
+        <div class="space-y-6">
+            <!-- Personal Information Card -->
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+                <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Personal Information</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Your age and retirement target</p>
+                    </div>
+                </div>
+
+                <div class="p-6 space-y-5">
+                    <!-- Current Age -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Current Age
+                        </label>
+                        <input type="number" x-model.number="currentAge" @input="calculate()"
+                            class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+                            placeholder="30" min="18" max="80" step="1">
+                    </div>
+
+                    <!-- Target FIRE Age -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Target FIRE Age
+                        </label>
+                        <input type="number" x-model.number="targetFireAge" @input="calculate()"
+                            class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+                            placeholder="50" min="25" max="100" step="1">
+                        <p class="mt-1 text-xs text-gray-400">Age when you want to stop working and live off investments</p>
+                    </div>
+
+                    <!-- Life Expectancy -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Life Expectancy
+                        </label>
+                        <input type="number" x-model.number="lifeExpectancy" @input="calculate()"
+                            class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+                            placeholder="90" min="60" max="110" step="1">
+                        <p class="mt-1 text-xs text-gray-400">Used to calculate how long your money needs to last</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monthly Figures Card -->
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+                <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Monthly Figures</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Savings and spending</p>
+                    </div>
+                </div>
+
+                <div class="p-6 space-y-5">
+                    <!-- Monthly Savings -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Monthly Savings (kr.)
+                        </label>
+                        <div class="relative">
+                            <input type="text" :value="formatInputNumber(monthlySavings)" @input="monthlySavings = parseInputNumber($event.target.value); calculate()"
+                                class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all tabular-nums"
+                                placeholder="10.000" inputmode="numeric">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-400">How much you invest each month</p>
+                        <div class="flex items-center gap-3 mt-3">
+                            <input type="checkbox" id="stopContributionsAtFI" x-model="stopContributionsAtFI" @change="calculate()"
+                                class="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-amber-500 focus:ring-amber-500/50 bg-gray-50 dark:bg-dark-bg">
+                            <label for="stopContributionsAtFI" class="text-sm text-gray-700 dark:text-gray-300">
+                                Stop contributions when FI is reached
+                            </label>
+                        </div>
+                        <p x-show="stopContributionsAtFI" class="text-xs text-gray-400 ml-7">Contributions stop when portfolio reaches FIRE number</p>
+                    </div>
+
+                    <!-- Monthly Expenses -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Monthly Expenses in Retirement (kr.)
+                        </label>
+                        <div class="relative">
+                            <input type="text" :value="formatInputNumber(monthlyExpenses)" @input="monthlyExpenses = parseInputNumber($event.target.value); calculate()"
+                                class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all tabular-nums"
+                                placeholder="25.000" inputmode="numeric">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-400">How much you need to live on each month when retired</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Net Worth Card -->
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+                <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Current Net Worth</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Pre-filled from your accounts</p>
+                    </div>
+                </div>
+
+                <div class="p-6 space-y-5">
+                    <!-- Frie Midler -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Frie Midler (Free Funds) (kr.)
+                        </label>
+                        <div class="relative">
+                            <input type="text" :value="formatInputNumber(frieMidler)" @input="frieMidler = parseInputNumber($event.target.value); calculate()"
+                                class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all tabular-nums"
+                                placeholder="500.000" inputmode="numeric">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-400">Stocks, ETFs, crypto, savings (taxed 27%/42%)</p>
+                    </div>
+
+                    <!-- ASK -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Aktiesparekonto / ASK (kr.)
+                        </label>
+                        <div class="relative">
+                            <input type="text" :value="formatInputNumber(askBalance)" @input="askBalance = parseInputNumber($event.target.value); calculate()"
+                                class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all tabular-nums"
+                                placeholder="166.200" inputmode="numeric">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-400">Tax-advantaged (17%), max 166.200 kr. deposit (2025)</p>
+                    </div>
+
+                    <!-- Pension -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Pension Accounts (kr.)
+                        </label>
+                        <div class="relative">
+                            <input type="text" :value="formatInputNumber(pensionBalance)" @input="pensionBalance = parseInputNumber($event.target.value); calculate()"
+                                class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all tabular-nums"
+                                placeholder="300.000" inputmode="numeric">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-400">Ratepension, aldersopsparing (locked until ~60-65)</p>
+                    </div>
+
+                    <!-- Liabilities -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Liabilities / Debt (kr.)
+                        </label>
+                        <div class="relative">
+                            <input type="text" :value="formatInputNumber(liabilities)" @input="liabilities = parseInputNumber($event.target.value); calculate()"
+                                class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all tabular-nums"
+                                placeholder="0" inputmode="numeric">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-400">Mortgage, loans, credit (subtracted from net worth)</p>
+                    </div>
+
+                    <!-- Net Worth Display -->
+                    <div class="pt-4 border-t border-gray-200 dark:border-dark-border space-y-2">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-gray-500 dark:text-gray-400">Total Assets</span>
+                            <span class="text-gray-700 dark:text-gray-300" x-text="formatNumber(totalAssets) + ' kr.'"></span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm" x-show="liabilities > 0">
+                            <span class="text-gray-500 dark:text-gray-400">Liabilities</span>
+                            <span class="text-red-500" x-text="'-' + formatNumber(liabilities) + ' kr.'"></span>
+                        </div>
+                        <div class="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-dark-border">
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Net Worth</span>
+                            <span class="text-lg font-bold" :class="netWorth >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-500'" x-text="formatNumber(netWorth) + ' kr.'"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assumptions Card -->
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+                <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border cursor-pointer" @click="showAdvanced = !showAdvanced">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Assumptions</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Click to expand/collapse</p>
+                    </div>
+                    <svg class="w-5 h-5 text-gray-400 transition-transform" :class="{'rotate-180': showAdvanced}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </div>
+
+                <div class="p-6 space-y-5" x-show="showAdvanced" x-transition>
+                    <!-- Expected Return -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Expected Annual Return (%)
+                        </label>
+                        <input type="number" x-model.number="expectedReturn" @input="calculate()"
+                            class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+                            placeholder="7" min="0" max="20" step="0.5">
+                        <p class="mt-1 text-xs text-gray-400">Historical stock market average: 7-10% before inflation</p>
+                    </div>
+
+                    <!-- Inflation Rate -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Expected Inflation (%)
+                        </label>
+                        <input type="number" x-model.number="inflationRate" @input="calculate()"
+                            class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+                            placeholder="2" min="0" max="10" step="0.5">
+                        <p class="mt-1 text-xs text-gray-400">Danish central bank target: 2%</p>
+                    </div>
+
+                    <!-- Safe Withdrawal Rate -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Safe Withdrawal Rate (%)
+                        </label>
+                        <input type="number" x-model.number="safeWithdrawalRate" @input="calculate()"
+                            class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+                            placeholder="4" min="2" max="6" step="0.1">
+                        <p class="mt-1 text-xs text-gray-400">4% is the classic rule for 30-year retirement. Use 3-3.5% for longer.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workplace Pension Card - Multi-stream -->
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+                <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Pension Income</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Ratepension, livsvarig, aldersopsparing, ATP</p>
+                    </div>
+                </div>
+
+                <div class="p-6 space-y-5">
+                    <!-- Include Workplace Pension -->
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" id="includeWorkplacePension" x-model="includeWorkplacePension" @change="calculate()"
+                            class="w-5 h-5 rounded border-gray-300 dark:border-dark-border text-amber-600 focus:ring-amber-500 dark:bg-dark-bg">
+                        <label for="includeWorkplacePension" class="text-sm text-gray-700 dark:text-gray-300">
+                            Include workplace pension payouts
+                        </label>
+                    </div>
+
+                    <div x-show="includeWorkplacePension" class="space-y-5">
+                        <!-- Monthly Pension Contribution -->
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                Monthly Pension Contribution (kr.)
+                            </label>
+                            <div class="relative">
+                                <input type="text" :value="formatInputNumber(monthlyPensionContribution)" @input="monthlyPensionContribution = parseInputNumber($event.target.value); calculate()"
+                                    class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all tabular-nums"
+                                    placeholder="5.000" inputmode="numeric">
+                                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                            </div>
+                            <p class="mt-1 text-xs text-gray-400">Your + employer contribution each month (grows pension until FIRE)</p>
+                        </div>
+
+                        <!-- Composition Mode Toggle -->
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                Pension Breakdown Mode
+                            </label>
+                            <div class="flex gap-2">
+                                <button type="button" @click="pensionComposition = 'auto'; calculate()"
+                                    class="flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors"
+                                    :class="pensionComposition === 'auto' ? 'bg-amber-500 text-white' : 'bg-gray-100 dark:bg-dark-bg text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-hover'">
+                                    Auto Estimate
+                                </button>
+                                <button type="button" @click="pensionComposition = 'manual'; calculate()"
+                                    class="flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors"
+                                    :class="pensionComposition === 'manual' ? 'bg-amber-500 text-white' : 'bg-gray-100 dark:bg-dark-bg text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-hover'">
+                                    Manual Input
+                                </button>
+                            </div>
+                            <p class="mt-1 text-xs text-gray-400">Auto uses typical Danish splits (45% rate, 50% livsvarig, 5% alder)</p>
+                        </div>
+
+                        <!-- Auto Mode: Show calculated breakdown -->
+                        <div x-show="pensionComposition === 'auto'" class="space-y-3">
+                            <!-- Current Breakdown -->
+                            <div class="rounded-lg bg-gray-50 dark:bg-dark-bg p-4 space-y-2">
+                                <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                                    Current Breakdown (~45/50/5% split)
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-gray-600 dark:text-gray-400">Ratepension</span>
+                                    <span class="font-medium text-gray-900 dark:text-white tabular-nums" x-text="formatNumber(ratepensionBalance) + ' kr.'"></span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-gray-600 dark:text-gray-400">Livsvarig</span>
+                                    <span class="font-medium text-gray-900 dark:text-white tabular-nums" x-text="formatNumber(livsvarigBalance) + ' kr.'"></span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-gray-600 dark:text-gray-400">Aldersopsparing</span>
+                                    <span class="font-medium text-gray-900 dark:text-white tabular-nums" x-text="formatNumber(aldersopsparingBalance) + ' kr.'"></span>
+                                </div>
+                            </div>
+
+                            <!-- Projected Breakdown at Payout (shows when contributions exist or growth matters) -->
+                            <div x-show="monthlyPensionContribution > 0 || (pensionBalance > 0 && targetFireAge < ratepensionStartAge)"
+                                 class="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 p-4 space-y-2">
+                                <div class="text-xs font-medium text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-3">
+                                    Projected at Payout Start (with growth)
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-emerald-600 dark:text-emerald-400">Ratepension (age <span x-text="ratepensionStartAge"></span>)</span>
+                                    <span class="font-medium text-emerald-700 dark:text-emerald-300 tabular-nums" x-text="formatNumber(getProjectedPensionBreakdown().ratepension) + ' kr.'"></span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-emerald-600 dark:text-emerald-400">Livsvarig (age <span x-text="livsvarigStartAge"></span>)</span>
+                                    <span class="font-medium text-emerald-700 dark:text-emerald-300 tabular-nums" x-text="formatNumber(getProjectedPensionBreakdown().livsvarig) + ' kr.'"></span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-emerald-600 dark:text-emerald-400">Aldersopsparing (age <span x-text="aldersopsparingAge"></span>)</span>
+                                    <span class="font-medium text-emerald-700 dark:text-emerald-300 tabular-nums" x-text="formatNumber(getProjectedPensionBreakdown().aldersopsparing) + ' kr.'"></span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm pt-2 border-t border-emerald-200 dark:border-emerald-700">
+                                    <span class="font-medium text-emerald-700 dark:text-emerald-300">Total Projected</span>
+                                    <span class="font-semibold text-emerald-800 dark:text-emerald-200 tabular-nums" x-text="formatNumber(getProjectedPensionBreakdown().total) + ' kr.'"></span>
+                                </div>
+                                <p class="text-xs text-emerald-600 dark:text-emerald-500 mt-2">
+                                    Includes <span x-text="formatNumber(monthlyPensionContribution * 12)"></span> kr/year contributions until FIRE + 2% growth
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Manual Mode: Editable inputs -->
+                        <div x-show="pensionComposition === 'manual'" class="space-y-4">
+                            <!-- Ratepension Balance -->
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                    Ratepension Balance (kr.)
+                                </label>
+                                <div class="relative">
+                                    <input type="text" :value="formatInputNumber(ratepensionBalance)" @input="ratepensionBalance = parseInputNumber($event.target.value); calculate()"
+                                        class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all tabular-nums"
+                                        placeholder="300.000" inputmode="numeric">
+                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                                </div>
+                                <p class="mt-1 text-xs text-gray-400">Paid out over 10 years (from age <span x-text="ratepensionStartAge"></span>)</p>
+                            </div>
+
+                            <!-- Livsvarig Balance -->
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                    Livsvarig Pension Balance (kr.)
+                                </label>
+                                <div class="relative">
+                                    <input type="text" :value="formatInputNumber(livsvarigBalance)" @input="livsvarigBalance = parseInputNumber($event.target.value); calculate()"
+                                        class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all tabular-nums"
+                                        placeholder="350.000" inputmode="numeric">
+                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                                </div>
+                                <p class="mt-1 text-xs text-gray-400">Lifelong payout (from age <span x-text="livsvarigStartAge"></span>)</p>
+                            </div>
+
+                            <!-- Aldersopsparing Balance -->
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                    Aldersopsparing Balance (kr.)
+                                </label>
+                                <div class="relative">
+                                    <input type="text" :value="formatInputNumber(aldersopsparingBalance)" @input="aldersopsparingBalance = parseInputNumber($event.target.value); calculate()"
+                                        class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all tabular-nums"
+                                        placeholder="35.000" inputmode="numeric">
+                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                                </div>
+                                <p class="mt-1 text-xs text-gray-400">One-time tax-free payout at age <span x-text="aldersopsparingAge"></span></p>
+                            </div>
+                        </div>
+
+                        <!-- ATP Section -->
+                        <div class="pt-4 pb-4 border-t border-gray-200 dark:border-dark-border">
+                            <div class="flex items-center gap-3 mb-3">
+                                <input type="checkbox" id="includeATP" x-model="includeATP" @change="calculate()"
+                                    class="w-5 h-5 rounded border-gray-300 dark:border-dark-border text-amber-600 focus:ring-amber-500 dark:bg-dark-bg">
+                                <label for="includeATP" class="text-sm text-gray-700 dark:text-gray-300">
+                                    Include ATP Livslang Pension
+                                </label>
+                            </div>
+                            <div x-show="includeATP">
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                    Years Worked in Denmark
+                                </label>
+                                <input type="number" x-model.number="atpYearsWorked" @input="calculate()"
+                                    class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+                                    placeholder="30" min="0" max="50" step="1">
+                                <p class="mt-1 text-xs text-gray-400">Estimated ATP: ~<span x-text="formatNumber(atpYearsWorked * 700)"></span> kr/year from age 69</p>
+                            </div>
+                        </div>
+
+                        <!-- Payout Start Ages (Advanced) -->
+                        <div class="pt-4 border-t border-gray-200 dark:border-dark-border">
+                            <button type="button" @click="showPensionAdvanced = !showPensionAdvanced"
+                                class="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300">
+                                <svg class="w-4 h-4 transition-transform" :class="showPensionAdvanced ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                                Advanced: Payout Start Ages
+                            </button>
+                            <div x-show="showPensionAdvanced" class="mt-3 space-y-3">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Ratepension Start</label>
+                                        <input type="number" x-model.number="ratepensionStartAge" @input="calculate()"
+                                            class="w-full px-3 py-2 text-sm rounded-lg bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white"
+                                            min="60" max="75" step="1">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Duration (years)</label>
+                                        <input type="number" x-model.number="ratepensionDuration" @input="calculate()"
+                                            class="w-full px-3 py-2 text-sm rounded-lg bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white"
+                                            min="5" max="30" step="1">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Livsvarig Start</label>
+                                        <input type="number" x-model.number="livsvarigStartAge" @input="calculate()"
+                                            class="w-full px-3 py-2 text-sm rounded-lg bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white"
+                                            min="60" max="75" step="1">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Aldersopsparing Age</label>
+                                        <input type="number" x-model.number="aldersopsparingAge" @input="calculate()"
+                                            class="w-full px-3 py-2 text-sm rounded-lg bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white"
+                                            min="60" max="75" step="1">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pension Info -->
+                        <div class="rounded-lg bg-indigo-50 dark:bg-indigo-900/20 p-3 text-xs text-indigo-700 dark:text-indigo-300">
+                            <p><strong>Tax treatment:</strong> Ratepension, livsvarig & ATP are taxed as income (37-52%). Aldersopsparing is <strong>tax-free</strong>.</p>
+                            <p class="mt-1">Check <a href="https://www.pensionsinfo.dk" target="_blank" class="underline">PensionsInfo.dk</a> for your actual pension breakdown.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Folkepension Card -->
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+                <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Folkepension</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Danish state pension (2025 rates)</p>
+                    </div>
+                </div>
+
+                <div class="p-6 space-y-5">
+                    <!-- Include Folkepension -->
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" id="includeFolkepension" x-model="includeFolkepension" @change="calculate()"
+                            class="w-5 h-5 rounded border-gray-300 dark:border-dark-border text-amber-600 focus:ring-amber-500 dark:bg-dark-bg">
+                        <label for="includeFolkepension" class="text-sm text-gray-700 dark:text-gray-300">
+                            Include folkepension in retirement income
+                        </label>
+                    </div>
+
+                    <!-- Folkepension Age -->
+                    <div x-show="includeFolkepension">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Folkepension Start Age
+                        </label>
+                        <input type="number" x-model.number="folkepensionAge" @input="calculate()"
+                            class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
+                            placeholder="67" min="62" max="75" step="1">
+                        <p class="mt-1 text-xs text-gray-400">Current: 67 years (rising with life expectancy)</p>
+                    </div>
+
+                    <!-- Folkepension Info -->
+                    <div class="rounded-lg bg-rose-50 dark:bg-rose-900/20 p-3 text-xs text-rose-700 dark:text-rose-300" x-show="includeFolkepension">
+                        <p><strong>2025 rates (single):</strong></p>
+                        <p>Basic: 7.198 kr./month</p>
+                        <p>Supplement: up to 8.329 kr./month (means-tested)</p>
+                        <p class="mt-1 opacity-75">Total max: ~15.527 kr./month before tax</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tax Settings Card -->
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+                <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Tax Calculations</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Danish tax rules (2025)</p>
+                    </div>
+                </div>
+
+                <div class="p-6 space-y-5">
+                    <!-- Include Taxes Toggle -->
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" id="includeTaxes" x-model="includeTaxes" @change="calculate()"
+                            class="w-5 h-5 rounded border-gray-300 dark:border-dark-border text-amber-600 focus:ring-amber-500 dark:bg-dark-bg">
+                        <label for="includeTaxes" class="text-sm text-gray-700 dark:text-gray-300">
+                            Show after-tax calculations
+                        </label>
+                    </div>
+
+                    <!-- Personal Deduction Toggle (only visible when taxes are enabled) -->
+                    <div x-show="includeTaxes" class="flex items-center gap-3">
+                        <input type="checkbox" id="usePersonalDeduction" x-model="usePersonalDeduction" @change="calculate()"
+                            class="w-5 h-5 rounded border-gray-300 dark:border-dark-border text-amber-600 focus:ring-amber-500 dark:bg-dark-bg">
+                        <label for="usePersonalDeduction" class="text-sm text-gray-700 dark:text-gray-300">
+                            Use personal deduction (personfradrag)
+                        </label>
+                    </div>
+                    <p x-show="includeTaxes && usePersonalDeduction" class="text-xs text-gray-400 -mt-3 ml-8">
+                        ~49.700 kr tax-free in years with no pension/folkepension income
+                    </p>
+
+                    <!-- Tax Info -->
+                    <div class="rounded-lg bg-slate-50 dark:bg-slate-900/20 p-3 text-xs text-slate-700 dark:text-slate-300" x-show="includeTaxes">
+                        <p><strong>Tax rates applied (2025):</strong></p>
+                        <p class="mt-1">• ASK: 17% on all gains</p>
+                        <p>• Stocks (frie midler): 27% up to 67.500 kr, 42% above</p>
+                        <p>• Pension/folkepension: ~37% effective rate</p>
+                        <p class="mt-2 opacity-75">Note: Simplified model - actual taxes depend on personal deductions and municipal rates.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Results -->
+        <div class="space-y-6">
+            <!-- Status Card with collapsible explanation -->
+            <div class="rounded-2xl overflow-hidden" :class="statusClass">
+                <div class="p-6 text-white">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                            <svg x-show="isOnTrack && !isAlreadyFI" class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <svg x-show="!isOnTrack && !isAlreadyFI" class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            </svg>
+                            <svg x-show="isAlreadyFI" class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-lg font-bold" x-text="statusMessage"></p>
+                            <p class="text-sm opacity-80" x-text="statusSubtext"></p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-2xl font-bold" x-text="formatNumber(fireNumber) + ' kr.'"></p>
+                            <p class="text-xs opacity-70">FIRE Number</p>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="mt-4">
+                        <div class="flex justify-between text-sm mb-2">
+                            <span>Progress to FIRE Number</span>
+                            <span x-text="Math.min(progressPercent, 100).toFixed(1) + '%'"></span>
+                        </div>
+                        <div class="h-3 bg-white/20 rounded-full overflow-hidden">
+                            <div class="h-full bg-white rounded-full transition-all duration-500" :style="'width: ' + Math.min(progressPercent, 100) + '%'"></div>
+                        </div>
+                    </div>
+
+                    <!-- Recommendations when NOT on track -->
+                    <div x-show="!isOnTrack && !isAlreadyFI" class="mt-4 pt-4 border-t border-white/20 mb-4">
+                        <p class="text-sm font-semibold mb-3 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                            </svg>
+                            How to reach FIRE by age <span x-text="targetFireAge"></span>
+                        </p>
+                        <div class="space-y-3 text-sm">
+                            <!-- Option 1: Save more -->
+                            <div class="bg-white/10 rounded-lg p-3">
+                                <p class="text-xs opacity-70 uppercase tracking-wider mb-1">Option 1: Increase savings</p>
+                                <p class="font-medium">
+                                    Save <span x-text="formatNumber(recommendedMonthlySavings)"></span> kr./month
+                                    <span class="opacity-70 font-normal">(+<span x-text="formatNumber(recommendedMonthlySavings - monthlySavings)"></span> kr.)</span>
+                                </p>
+                            </div>
+                            <!-- Option 2: Reduce expenses -->
+                            <div class="bg-white/10 rounded-lg p-3">
+                                <p class="text-xs opacity-70 uppercase tracking-wider mb-1">Option 2: Reduce retirement expenses</p>
+                                <p class="font-medium">
+                                    Live on <span x-text="formatNumber(recommendedExpenses)"></span> kr./month
+                                    <span class="opacity-70 font-normal">(-<span x-text="formatNumber(monthlyExpenses - recommendedExpenses)"></span> kr.)</span>
+                                </p>
+                            </div>
+                            <!-- Option 3: Retire later -->
+                            <div class="bg-white/10 rounded-lg p-3" x-show="yearsToFire < 999">
+                                <p class="text-xs opacity-70 uppercase tracking-wider mb-1">Option 3: Delay retirement</p>
+                                <p class="font-medium">
+                                    Retire at age <span x-text="currentAge + yearsToFire"></span>
+                                    <span class="opacity-70 font-normal">(+<span x-text="yearsToFire - (targetFireAge - currentAge)"></span> years)</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Collapsible explanation -->
+                    <div class="mt-4 pt-4 border-t border-white/20">
+                        <button @click="showCalculation = !showCalculation" class="flex items-center gap-2 text-sm opacity-80 hover:opacity-100 transition-opacity w-full">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span>How is this calculated?</span>
+                            <svg class="w-4 h-4 ml-auto transition-transform" :class="showCalculation ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div x-show="showCalculation" x-transition class="mt-3 text-xs space-y-1.5 opacity-90">
+                            <p><strong>FIRE Number</strong> = Annual Expenses ÷ Safe Withdrawal Rate</p>
+                            <p class="opacity-70 font-mono text-[11px]">= (<span x-text="formatNumber(monthlyExpenses)"></span> × 12) ÷ <span x-text="safeWithdrawalRate"></span>%</p>
+                            <p class="opacity-70 font-mono text-[11px]">= <span x-text="formatNumber(monthlyExpenses * 12)"></span> ÷ <span x-text="(safeWithdrawalRate / 100).toFixed(2)"></span></p>
+                            <p class="font-mono text-[11px]">= <span x-text="formatNumber(fireNumber)"></span> kr.</p>
+                            <p class="mt-2 pt-2 border-t border-white/20 text-[11px]">
+                                This assumes <span x-text="safeWithdrawalRate"></span>% annual withdrawal covers your <span x-text="formatNumber(monthlyExpenses)"></span> kr./month expenses indefinitely.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Cards - streamlined 3-column grid -->
+            <div class="grid grid-cols-3 gap-3">
+                <div class="rounded-xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-4">
+                    <p class="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Time to FI</p>
+                    <p class="text-xl font-bold mt-1" :class="yearsToFire === 0 ? 'text-emerald-500' : 'text-amber-500'" x-text="yearsToFire === 0 ? 'Now!' : yearsToFire + ' yrs'"></p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" x-text="yearsToFire === 0 ? 'You can retire now' : 'Reach FI at age ' + (currentAge + yearsToFire)"></p>
+                </div>
+                <div class="rounded-xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-4">
+                    <p class="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Withdrawal Income</p>
+                    <p class="text-xl font-bold mt-1" :class="monthlyIncomeFromSavings >= monthlyExpenses ? 'text-emerald-500' : 'text-amber-500'" x-text="formatNumber(monthlyIncomeFromSavings) + ' kr.'"></p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        <span x-text="safeWithdrawalRate + '% SWR = ' + formatNumber(monthlyIncomeFromSavings) + '/mo'"></span>
+                    </p>
+                </div>
+                <div class="rounded-xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-4">
+                    <p class="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">After Age <span x-text="folkepensionAge"></span></p>
+                    <p class="text-xl font-bold text-emerald-500 mt-1" x-text="formatNumber(monthlyIncomeTotal) + ' kr.'"></p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" x-show="includeFolkepension && includeWorkplacePension">Savings + pension + state</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" x-show="includeFolkepension && !includeWorkplacePension">Savings + state pension</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" x-show="!includeFolkepension && includeWorkplacePension">Savings + workplace pension</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" x-show="!includeFolkepension && !includeWorkplacePension">From savings only</p>
+                </div>
+            </div>
+
+            <!-- Wealth Over Time Chart -->
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Wealth Over Lifetime</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Accumulation phase → FIRE → Drawdown until age <span x-text="lifeExpectancy"></span></p>
+                <div class="h-72">
+                    <canvas id="savingsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Retirement Income Sources Chart -->
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Retirement Income Sources</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Monthly income breakdown at FIRE</p>
+                <div class="h-64">
+                    <canvas id="incomeChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Drawdown Explanation -->
+            <div class="rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-5" x-show="isAlreadyFI || yearsToFire <= 5">
+                <h3 class="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-3 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
+                    </svg>
+                    Drawdown Phase Explained
+                </h3>
+                <div class="text-xs text-amber-800 dark:text-amber-200 space-y-2">
+                    <p>After reaching FIRE, you stop contributing and start withdrawing <span x-text="formatNumber(monthlyExpenses)"></span> kr./month.</p>
+                    <p>Your portfolio continues to earn returns (<span x-text="expectedReturn"></span>%), but withdrawals reduce it over time.</p>
+                    <p x-show="includeFolkepension">At age <span x-text="folkepensionAge"></span>, folkepension reduces the amount you need to withdraw.</p>
+                    <p class="font-semibold mt-2" x-show="portfolioAtEnd > 0">Projected remaining at age <span x-text="lifeExpectancy"></span>: <span x-text="formatNumber(portfolioAtEnd)"></span> kr.</p>
+                    <p class="font-semibold mt-2 text-red-600 dark:text-red-400" x-show="portfolioAtEnd <= 0 && runsOutAge > 0">Warning: Portfolio depletes at age <span x-text="runsOutAge"></span>!</p>
+                </div>
+            </div>
+
+            <!-- Tax Strategy Section - Simple -->
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-dark-border cursor-pointer flex items-center gap-3" @click="showTaxStrategy = !showTaxStrategy">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Danish Tax Info</h3>
+                    </div>
+                    <svg class="w-4 h-4 text-gray-400 transition-transform duration-200" :class="showTaxStrategy ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </div>
+
+                <div x-show="showTaxStrategy" x-transition class="p-5 space-y-4">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        Withdraw in this order for best tax efficiency:
+                    </p>
+
+                    <div class="space-y-2 text-sm">
+                        <div class="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                            <span class="w-5 h-5 rounded-full bg-emerald-500 text-white text-xs flex items-center justify-center font-bold">1</span>
+                            <span class="flex-1">Aldersopsparing</span>
+                            <span class="text-emerald-400 font-medium">0% tax</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                            <span class="w-5 h-5 rounded-full bg-cyan-500 text-white text-xs flex items-center justify-center font-bold">2</span>
+                            <span class="flex-1">ASK Account</span>
+                            <span class="text-cyan-400 font-medium">17% tax</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                            <span class="w-5 h-5 rounded-full bg-amber-500 text-white text-xs flex items-center justify-center font-bold">3</span>
+                            <span class="flex-1">Free Funds (Stocks)</span>
+                            <span class="text-amber-400 font-medium">27% tax</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-gray-700 dark:text-gray-300">
+                            <span class="w-5 h-5 rounded-full bg-violet-500 text-white text-xs flex items-center justify-center font-bold">4</span>
+                            <span class="flex-1">Ratepension</span>
+                            <span class="text-violet-400 font-medium">37-52% tax</span>
+                        </div>
+                    </div>
+
+                    <!-- Tax threshold note -->
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                        Stock gains above 67,500 kr./year are taxed at 42% instead of 27%.
+                    </p>
+
+                    <!-- Your Strategy Section -->
+                    <div class="mt-4 pt-4 border-t border-gray-200 dark:border-dark-border">
+                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Your Strategy</p>
+
+                        <div class="space-y-2">
+                            <!-- ASK optimization -->
+                            <template x-if="askBalance < 166200">
+                                <div class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                    <span class="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-3 h-3 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="flex-1">Add <span class="text-cyan-400 font-medium" x-text="formatNumber(166200 - askBalance)"></span> kr. to max ASK (17% vs 27-42%)</span>
+                                </div>
+                            </template>
+                            <template x-if="askBalance >= 166200">
+                                <div class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                    <span class="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-3 h-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="flex-1"><span class="text-emerald-400">ASK maxed</span> — at contribution limit</span>
+                                </div>
+                            </template>
+
+                            <!-- Free funds vs pension ratio -->
+                            <template x-if="frieMidler > 0 && pensionBalance > 0">
+                                <div class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                    <span class="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="flex-1"><span class="text-amber-400 font-medium" x-text="formatNumber(frieMidler)"></span> free · <span class="text-violet-400 font-medium" x-text="formatNumber(pensionBalance)"></span> pension</span>
+                                </div>
+                            </template>
+
+                            <!-- Early retirement warning -->
+                            <template x-if="targetFireAge < 60 && pensionBalance > frieMidler">
+                                <div class="flex items-center gap-2 text-sm text-red-400">
+                                    <span class="w-5 h-5 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-3 h-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="flex-1">Need <span x-text="60 - targetFireAge"></span>+ yrs of free funds before pension unlocks</span>
+                                </div>
+                            </template>
+
+                            <!-- General advice -->
+                            <template x-if="!isAlreadyFI">
+                                <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 pt-2 mt-1 border-t border-gray-200 dark:border-dark-border">
+                                    <span class="w-5 h-5 rounded-full bg-gray-500/10 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="flex-1">Priority: ASK → Free funds → Pension match</span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Year-by-Year Breakdown -->
+    <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-dark-border">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Year-by-Year Projection</h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Shows accumulation, FIRE point, and drawdown phases</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-dark-hover">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Age</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Contributions</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Withdrawals</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Returns</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Portfolio</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Phase</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-dark-border">
+                    <template x-for="row in yearlyBreakdown.slice(0, showAllYears ? yearlyBreakdown.length : 15)" :key="row.age">
+                        <tr class="hover:bg-gray-50 dark:hover:bg-dark-hover">
+                            <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white" x-text="row.age"></td>
+                            <td class="px-4 py-3 text-sm text-right" :class="row.contributions > 0 ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'" x-text="row.contributions > 0 ? formatNumber(row.contributions) + ' kr.' : '0 kr.'"></td>
+                            <td class="px-4 py-3 text-sm text-right" :class="row.withdrawals > 0 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'" x-text="row.withdrawals > 0 ? '-' + formatNumber(row.withdrawals) + ' kr.' : '0 kr.'"></td>
+                            <td class="px-4 py-3 text-sm text-right" :class="row.returns >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'" x-text="formatNumber(row.returns) + ' kr.'"></td>
+                            <td class="px-4 py-3 text-sm text-right font-medium" :class="row.portfolio > 0 ? 'text-gray-900 dark:text-white' : 'text-red-500'" x-text="formatNumber(Math.max(0, row.portfolio)) + ' kr.'"></td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                                    :style="{
+                                        'background-color': row.phase === 'Saving' ? '#3b82f6' :
+                                                           row.phase === 'FI' ? '#059669' :
+                                                           row.phase === 'RE!' ? '#10b981' :
+                                                           row.phase === 'Drawdown' ? '#f59e0b' :
+                                                           row.phase === 'Pension' ? '#8b5cf6' :
+                                                           row.phase === 'Underfunded' ? '#f97316' :
+                                                           row.phase === 'Broke' ? '#ef4444' : '#6b7280',
+                                        'color': 'white'
+                                    }"
+                                    x-text="row.phase"></span>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-dark-border" x-show="yearlyBreakdown.length > 15">
+            <button @click="showAllYears = !showAllYears" class="text-sm text-amber-600 dark:text-amber-400 hover:underline">
+                <span x-text="showAllYears ? 'Show less' : 'Show all ' + yearlyBreakdown.length + ' years'"></span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+function fireCalc(prefillData = {}) {
+    return {
+        // Inputs
+        currentAge: 32,
+        targetFireAge: 50,
+        lifeExpectancy: 90,
+        frieMidler: prefillData.frieMidler || 0,
+        askBalance: prefillData.ask || 0,
+        pensionBalance: prefillData.pension || 0,
+        liabilities: prefillData.liabilities || 0,
+        monthlySavings: 10000,
+        monthlyExpenses: 25000,
+        expectedReturn: 7,
+        inflationRate: 2,
+        safeWithdrawalRate: 4,
+        includeFolkepension: true,
+        folkepensionAge: 67,
+        // Workplace pension (legacy - kept for backwards compatibility)
+        includeWorkplacePension: true,
+        workplacePensionMonthly: 0,
+        workplacePensionAge: 65,
+
+        // Multi-stream pension modeling
+        pensionComposition: 'auto', // 'auto' or 'manual'
+        monthlyPensionContribution: 0, // Monthly contributions until FIRE
+        ratepensionBalance: 0,
+        livsvarigBalance: 0,
+        aldersopsparingBalance: 0,
+        atpYearsWorked: 30, // For ATP estimation (typical working years)
+
+        // Payout settings
+        ratepensionStartAge: 66,
+        ratepensionDuration: 10,
+        livsvarigStartAge: 66,
+        aldersopsparingAge: 67,
+        atpStartAge: 69,
+        includeATP: true,
+
+        // Tax settings
+        includeTaxes: true,
+        usePersonalDeduction: true,  // Apply personfradrag to stock gains when no other income
+
+        // Contribution behavior
+        stopContributionsAtFI: true,  // Stop contributions when FIRE number is reached
+
+        // UI state
+        showAdvanced: false,
+        showPensionAdvanced: false,
+        showAllYears: false,
+        showCalculation: false,
+        showTaxStrategy: true,
+
+        // Computed results
+        totalAssets: 0,
+        netWorth: 0,
+        fireNumber: 0,
+        yearsToFire: 0,
+        projectedSavings: 0,
+        monthlyIncomeFromSavings: 0,
+        monthlyIncomeTotal: 0,
+        isOnTrack: false,
+        isAlreadyFI: false,
+        progressPercent: 0,
+        statusMessage: '',
+        statusSubtext: '',
+        statusClass: '',
+        portfolioAtEnd: 0,
+        runsOutAge: 0,
+        // Recommendations for when not on track
+        shortfallAtTarget: 0,
+        recommendedMonthlySavings: 0,
+        recommendedExpenses: 0,
+        achievableFireNumber: 0,
+
+        // Danish constants (2025)
+        FOLKEPENSION: {
+            basicSingle: 7198,
+            supplementMax: 8329,
+        },
+        // Danish tax rates (2025)
+        TAX: {
+            askRate: 0.17,                    // 17% flat for ASK
+            stockLowRate: 0.27,               // 27% up to threshold
+            stockHighRate: 0.42,              // 42% above threshold
+            stockThreshold: 67500,            // kr per year
+            pensionRate: 0.37,                // ~37% effective rate for pension income
+            personfradrag: 49700,             // Personal deduction (2025) - tax-free amount
+        },
+
+        // Pension estimation defaults (based on typical Danish workplace pension splits)
+        PENSION_DEFAULTS: {
+            ratepensionShare: 0.45,           // ~45% of pension savings in ratepension
+            livsvarigShare: 0.50,             // ~50% in livsvarig (lifelong) pension
+            aldersopsparingShare: 0.05,       // ~5% in aldersopsparing (tax-free)
+            atpAnnualPerYear: 700,            // ~21,500 kr/30 years worked (ATP estimate)
+            // Growth factor for pension balance (conservative real return after inflation)
+            delayGrowthRate: 0.02,
+            // Purchasing power decline for livsvarig (inflation erosion)
+            livsvarigDeclineRate: 0.02,
+        },
+
+        // Data
+        yearlyBreakdown: [],
+        savingsChart: null,
+        incomeChart: null,
+
+        init() {
+            this.calculate();
+            // Delay chart rendering to ensure DOM is ready
+            this.$nextTick(() => {
+                setTimeout(() => this.updateCharts(), 100);
+            });
+        },
+
+        calculate() {
+            // Calculate totals
+            this.totalAssets = (this.frieMidler || 0) + (this.askBalance || 0) + (this.pensionBalance || 0);
+            this.netWorth = this.totalAssets - (this.liabilities || 0);
+
+            // Guard against SWR = 0 or negative (would cause Infinity)
+            if (this.safeWithdrawalRate <= 0) {
+                this.safeWithdrawalRate = 0.1; // Minimum 0.1%
+            }
+
+            // Calculate FIRE number (annual expenses / SWR)
+            const annualExpenses = (this.monthlyExpenses || 0) * 12;
+            this.fireNumber = Math.round(annualExpenses / (this.safeWithdrawalRate / 100));
+
+            // Build full timeline from now until life expectancy
+            this.buildTimeline();
+
+            // Calculate retirement income
+            this.calculateRetirementIncome();
+
+            // Determine status
+            this.determineStatus();
+
+            // Update charts
+            this.$nextTick(() => this.updateCharts());
+        },
+
+        // Tax calculation helper functions
+        calcStockTax(grossWithdrawal, deduction = 0) {
+            // Danish stock tax: 27% up to 67,500 kr, 42% above
+            // deduction is applied first (e.g., personfradrag when no other income)
+            if (grossWithdrawal <= 0) return 0;
+            const taxable = Math.max(0, grossWithdrawal - deduction);
+            if (taxable <= 0) return 0;
+            if (taxable <= this.TAX.stockThreshold) {
+                return taxable * this.TAX.stockLowRate;
+            }
+            return this.TAX.stockThreshold * this.TAX.stockLowRate +
+                   (taxable - this.TAX.stockThreshold) * this.TAX.stockHighRate;
+        },
+
+        calcASKTax(grossWithdrawal) {
+            // ASK: flat 17%
+            return grossWithdrawal * this.TAX.askRate;
+        },
+
+        calcPensionTax(grossIncome) {
+            // Pension income (folkepension, ratepension): ~37% effective rate
+            return grossIncome * this.TAX.pensionRate;
+        },
+
+        // Estimate pension breakdown from total pension balance
+        estimatePensionBreakdown() {
+            if (this.pensionComposition === 'manual') return;
+
+            const total = this.pensionBalance || 0;
+            this.ratepensionBalance = Math.round(total * this.PENSION_DEFAULTS.ratepensionShare);
+            this.livsvarigBalance = Math.round(total * this.PENSION_DEFAULTS.livsvarigShare);
+            this.aldersopsparingBalance = Math.round(total * this.PENSION_DEFAULTS.aldersopsparingShare);
+        },
+
+        // Calculate projected pension breakdown at payout start ages (for display)
+        getProjectedPensionBreakdown() {
+            // Calculate projected balances at their respective payout start ages
+            // Contributions are split according to pension type shares (45%/50%/5%)
+            const rateShare = this.PENSION_DEFAULTS.ratepensionShare;
+            const livsvarigShare = this.PENSION_DEFAULTS.livsvarigShare;
+            const alderShare = this.PENSION_DEFAULTS.aldersopsparingShare;
+
+            const projectedRate = this.calcProjectedPensionBalance(this.ratepensionBalance, this.ratepensionStartAge, rateShare);
+            const projectedLivsvarig = this.calcProjectedPensionBalance(this.livsvarigBalance, this.livsvarigStartAge, livsvarigShare);
+            const projectedAlder = this.calcProjectedPensionBalance(this.aldersopsparingBalance, this.aldersopsparingAge, alderShare);
+
+            return {
+                ratepension: Math.round(projectedRate),
+                livsvarig: Math.round(projectedLivsvarig),
+                aldersopsparing: Math.round(projectedAlder),
+                total: Math.round(projectedRate + projectedLivsvarig + projectedAlder)
+            };
+        },
+
+        // Calculate projected pension balance at a future age, including contributions until FIRE
+        // contributionShare: fraction of total contribution that goes to this pension type (e.g., 0.45 for ratepension)
+        calcProjectedPensionBalance(currentBalance, targetAge, contributionShare = 1) {
+            const yearsUntilTarget = Math.max(0, targetAge - this.currentAge);
+            const yearsOfContributions = Math.max(0, Math.min(yearsUntilTarget, this.targetFireAge - this.currentAge));
+            const totalAnnualContribution = (this.monthlyPensionContribution || 0) * 12;
+            const annualContribution = totalAnnualContribution * contributionShare;
+            const growthRate = this.PENSION_DEFAULTS.delayGrowthRate;
+
+            // Grow balance with contributions until FIRE, then just growth until target
+            let balance = currentBalance;
+
+            // Phase 1: Contributions + growth until FIRE (or target if earlier)
+            for (let y = 0; y < yearsOfContributions; y++) {
+                balance = balance * (1 + growthRate) + annualContribution;
+            }
+
+            // Phase 2: Just growth from FIRE to target age (if target is after FIRE)
+            const yearsAfterFire = yearsUntilTarget - yearsOfContributions;
+            if (yearsAfterFire > 0) {
+                balance = balance * Math.pow(1 + growthRate, yearsAfterFire);
+            }
+
+            return balance;
+        },
+
+        // Calculate ratepension annual payout (10-year duration)
+        calcRatepensionPayout(age, retirementAge) {
+            const startAge = this.ratepensionStartAge;
+            const duration = this.ratepensionDuration;
+
+            // Not yet started or already ended
+            if (age < startAge || age >= startAge + duration) return 0;
+
+            // Calculate projected balance at payout start (includes contributions until FIRE)
+            // Pass contribution share (45%) so only ratepension's portion of contributions is added
+            let balance = this.calcProjectedPensionBalance(this.ratepensionBalance, startAge, this.PENSION_DEFAULTS.ratepensionShare);
+
+            // Annual payout (slight decline each year as purchasing power erodes)
+            const yearsIntoPayment = age - startAge;
+            const yearlyPayout = balance / duration;
+            const declineFactor = Math.pow(1 - this.PENSION_DEFAULTS.livsvarigDeclineRate, yearsIntoPayment);
+
+            return Math.round(yearlyPayout * declineFactor);
+        },
+
+        // Calculate livsvarig (lifelong) pension annual payout
+        calcLivsvarigPayout(age, retirementAge) {
+            const startAge = this.livsvarigStartAge;
+
+            // Not yet started
+            if (age < startAge) return 0;
+
+            // Calculate projected balance at payout start (includes contributions until FIRE)
+            // Pass contribution share (50%) so only livsvarig's portion of contributions is added
+            let balance = this.calcProjectedPensionBalance(this.livsvarigBalance, startAge, this.PENSION_DEFAULTS.livsvarigShare);
+
+            // Annuity calculation: balance / expected years remaining
+            // Use life expectancy minus start age as payout period
+            const expectedYears = Math.max(10, this.lifeExpectancy - startAge);
+            const baseYearlyPayout = balance / expectedYears;
+
+            // Decline over time (inflation erosion of fixed payments)
+            const yearsIntoPayment = age - startAge;
+            const declineFactor = Math.pow(1 - this.PENSION_DEFAULTS.livsvarigDeclineRate, yearsIntoPayment);
+
+            return Math.round(baseYearlyPayout * declineFactor);
+        },
+
+        // Calculate aldersopsparing one-time payout
+        calcAldersopsparingPayout(age) {
+            // Only paid out in the specific year
+            if (age !== this.aldersopsparingAge) return 0;
+
+            // Calculate projected balance at payout (includes contributions until FIRE)
+            // Pass contribution share (5%) so only aldersopsparing's portion of contributions is added
+            let balance = this.calcProjectedPensionBalance(this.aldersopsparingBalance, this.aldersopsparingAge, this.PENSION_DEFAULTS.aldersopsparingShare);
+
+            return Math.round(balance);
+        },
+
+        // Calculate ATP (livslang pension) annual payout
+        calcATPPayout(age) {
+            const startAge = this.atpStartAge;
+
+            // Not yet started or ATP not included
+            if (age < startAge || !this.includeATP) return 0;
+
+            // ATP is based on years worked, ~700 kr/year worked
+            const baseAnnual = this.atpYearsWorked * this.PENSION_DEFAULTS.atpAnnualPerYear;
+
+            // ATP actually increases slightly over time (regulation)
+            const yearsIntoPayment = age - startAge;
+            const increaseFactor = Math.pow(1.01, yearsIntoPayment); // ~1% annual increase
+
+            return Math.round(baseAnnual * increaseFactor);
+        },
+
+        // Get all pension payouts for a specific age
+        calcPensionPayouts(age, retirementAge) {
+            // Ensure pension breakdown is calculated
+            this.estimatePensionBreakdown();
+
+            return {
+                ratepension: this.calcRatepensionPayout(age, retirementAge),
+                livsvarig: this.calcLivsvarigPayout(age, retirementAge),
+                aldersopsparing: this.calcAldersopsparingPayout(age),
+                atp: this.calcATPPayout(age),
+            };
+        },
+
+        // Calculate gross withdrawal needed to get net amount after tax
+        // deduction: tax-free amount (e.g., personfradrag) applied before calculating tax
+        grossNeededForNet(netAmount, taxType, deduction = 0) {
+            if (netAmount <= 0) return 0;
+
+            if (taxType === 'pension') {
+                // net = gross * (1 - rate) => gross = net / (1 - rate)
+                return netAmount / (1 - this.TAX.pensionRate);
+            } else if (taxType === 'ask') {
+                return netAmount / (1 - this.TAX.askRate);
+            } else {
+                // Stock tax with progressive rates and optional deduction
+                // Use iterative approach to find gross where: gross - calcStockTax(gross, deduction) = net
+                let gross = netAmount / 0.65; // Initial estimate (35% avg tax)
+                for (let i = 0; i < 15; i++) {
+                    const tax = this.calcStockTax(gross, deduction);
+                    const actualNet = gross - tax;
+                    const error = actualNet - netAmount;
+                    if (Math.abs(error) < 1) break;
+                    gross -= error * 0.7; // Damped adjustment
+                }
+                return Math.max(0, gross);
+            }
+        },
+
+        buildTimeline() {
+            // Investment returns - only apply to invested assets, not total net worth
+            // For FIRE calculations, we assume the portfolio is mostly in equities
+            const annualReturn = (this.expectedReturn || 0) / 100;
+            // In drawdown, use a more conservative return (sequence-of-returns risk)
+            const drawdownReturn = Math.max(0, annualReturn - 0.01); // 1% less in drawdown
+
+            const annualContribution = (this.monthlySavings || 0) * 12;
+            const annualExpenses = (this.monthlyExpenses || 0) * 12;  // This is after-tax spending needs
+            const folkepensionAnnualGross = (this.FOLKEPENSION.basicSingle + this.FOLKEPENSION.supplementMax) * 12;
+
+            // Ensure pension breakdown is estimated
+            this.estimatePensionBreakdown();
+
+            this.yearlyBreakdown = [];
+            let portfolio = this.netWorth;
+            let reachedFire = this.netWorth >= this.fireNumber;
+            let fireAge = reachedFire ? this.currentAge : null;
+            this.runsOutAge = 0;
+
+            // Calculate from current age to life expectancy
+            const totalYears = this.lifeExpectancy - this.currentAge;
+
+            for (let i = 0; i <= totalYears; i++) {
+                const age = this.currentAge + i;
+                const startBalance = portfolio;
+
+                let contributions = 0;
+                let withdrawals = 0;
+                let returns = 0;
+                let phase = 'Saving';
+                let taxPaid = 0;
+                let folkepensionIncome = 0;
+
+                // Multi-stream pension income tracking
+                let ratepensionIncome = 0;
+                let livsvarigIncome = 0;
+                let aldersopsparingIncome = 0;
+                let atpIncome = 0;
+                let totalPensionIncome = 0;
+
+                // Key logic: Start drawdown at TARGET FIRE age, regardless of when FI is reached
+                // This models someone who wants to retire at a specific age
+                const shouldDrawdown = age >= this.targetFireAge;
+
+                if (shouldDrawdown) {
+                    // In drawdown phase - no more contributions, start withdrawing
+                    // Monthly expenses is after-tax (what you need to spend)
+                    let netExpensesNeeded = annualExpenses;
+                    phase = 'Drawdown';
+
+                    // Calculate multi-stream pension income (if workplace pension enabled)
+                    if (this.includeWorkplacePension) {
+                        const pensions = this.calcPensionPayouts(age, this.targetFireAge);
+
+                        // Ratepension (10-year payout, taxed)
+                        if (pensions.ratepension > 0) {
+                            if (this.includeTaxes) {
+                                const tax = this.calcPensionTax(pensions.ratepension);
+                                ratepensionIncome = pensions.ratepension - tax;
+                                taxPaid += tax;
+                            } else {
+                                ratepensionIncome = pensions.ratepension;
+                            }
+                        }
+
+                        // Livsvarig pension (lifelong, taxed)
+                        if (pensions.livsvarig > 0) {
+                            if (this.includeTaxes) {
+                                const tax = this.calcPensionTax(pensions.livsvarig);
+                                livsvarigIncome = pensions.livsvarig - tax;
+                                taxPaid += tax;
+                            } else {
+                                livsvarigIncome = pensions.livsvarig;
+                            }
+                        }
+
+                        // Aldersopsparing (one-time, TAX-FREE)
+                        if (pensions.aldersopsparing > 0) {
+                            // Aldersopsparing is tax-free!
+                            aldersopsparingIncome = pensions.aldersopsparing;
+                        }
+
+                        // ATP (lifelong, taxed)
+                        if (pensions.atp > 0) {
+                            if (this.includeTaxes) {
+                                const tax = this.calcPensionTax(pensions.atp);
+                                atpIncome = pensions.atp - tax;
+                                taxPaid += tax;
+                            } else {
+                                atpIncome = pensions.atp;
+                            }
+                        }
+
+                        totalPensionIncome = ratepensionIncome + livsvarigIncome + aldersopsparingIncome + atpIncome;
+                        netExpensesNeeded = Math.max(0, netExpensesNeeded - totalPensionIncome);
+                    }
+
+                    // Calculate folkepension income (if applicable)
+                    if (this.includeFolkepension && age >= this.folkepensionAge) {
+                        if (this.includeTaxes) {
+                            const folkeTax = this.calcPensionTax(folkepensionAnnualGross);
+                            folkepensionIncome = folkepensionAnnualGross - folkeTax;
+                            taxPaid += folkeTax;
+                        } else {
+                            folkepensionIncome = folkepensionAnnualGross;
+                        }
+                        netExpensesNeeded = Math.max(0, netExpensesNeeded - folkepensionIncome);
+                        phase = 'Pension';
+                    }
+
+                    // Calculate withdrawal needed from portfolio
+                    // If taxes enabled, we need to withdraw more to cover the net amount after tax
+                    let grossWithdrawal = netExpensesNeeded;
+                    if (this.includeTaxes && netExpensesNeeded > 0) {
+                        // Check if personal deduction (personfradrag) applies FIRST
+                        // Only applies when user has NO other taxable income (pension, folkepension)
+                        const hasPensionIncome = folkepensionIncome > 0 || totalPensionIncome > 0;
+                        const deduction = (this.usePersonalDeduction && !hasPensionIncome) ? this.TAX.personfradrag : 0;
+
+                        // Calculate gross withdrawal needed, accounting for deduction
+                        // This reduces the tax owed and thus the gross amount needed
+                        grossWithdrawal = this.grossNeededForNet(netExpensesNeeded, 'stock', deduction);
+
+                        const stockTax = this.calcStockTax(grossWithdrawal, deduction);
+                        taxPaid += stockTax;
+                    }
+
+                    // Withdraw at start of year
+                    withdrawals = Math.min(grossWithdrawal, Math.max(0, startBalance));
+
+                    // Calculate returns on REMAINING balance after withdrawal
+                    const balanceAfterWithdrawal = Math.max(0, startBalance - withdrawals);
+                    returns = Math.round(balanceAfterWithdrawal * drawdownReturn);
+                    portfolio = balanceAfterWithdrawal + returns;
+
+                    // Check if depleted or already depleted
+                    if (this.runsOutAge > 0 && age > this.runsOutAge) {
+                        // Already ran out - stay in Broke state
+                        phase = 'Broke';
+                        portfolio = 0;
+                        withdrawals = 0;
+                        returns = 0;
+                    } else if (portfolio <= 0 && this.runsOutAge === 0) {
+                        this.runsOutAge = age;
+                        phase = 'Broke';
+                        portfolio = 0;
+                    }
+
+                    // Mark RE (Retire Early) year only if we actually have enough savings
+                    // If portfolio at target age is less than FIRE number, show "Underfunded" instead
+                    if (age === this.targetFireAge) {
+                        if (startBalance >= this.fireNumber) {
+                            phase = 'RE!';  // Retire Early - actually stopping work now
+                        } else {
+                            phase = 'Underfunded';
+                        }
+                        reachedFire = startBalance >= this.fireNumber;
+                        fireAge = age;
+                    }
+                } else {
+                    // Still accumulating - contribute and earn returns
+                    // Contributions continue unless stopContributionsAtFI is enabled and we've reached FI
+                    if (this.stopContributionsAtFI && reachedFire) {
+                        contributions = 0;  // Stop contributions after reaching FI
+                    } else {
+                        contributions = annualContribution;
+                    }
+
+                    returns = Math.round(startBalance * annualReturn);
+                    portfolio = startBalance + contributions + returns;
+
+                    // Track when we reach FIRE number
+                    if (portfolio >= this.fireNumber && !reachedFire) {
+                        reachedFire = true;
+                        fireAge = age;
+                        phase = 'FI';  // Financially Independent! Could stop now, but continues to target age
+                    } else if (reachedFire) {
+                        phase = 'FI';  // Still FI, waiting for target RE age
+                    } else {
+                        phase = 'Saving';  // Not yet FI
+                    }
+                }
+
+                this.yearlyBreakdown.push({
+                    age: age,
+                    contributions: Math.round(contributions),
+                    withdrawals: Math.round(withdrawals),
+                    returns: Math.round(returns),
+                    portfolio: Math.round(Math.max(0, portfolio)),
+                    phase: phase,
+                    taxPaid: Math.round(taxPaid),
+                    // Multi-stream pension income
+                    ratepensionIncome: Math.round(ratepensionIncome),
+                    livsvarigIncome: Math.round(livsvarigIncome),
+                    aldersopsparingIncome: Math.round(aldersopsparingIncome),
+                    atpIncome: Math.round(atpIncome),
+                    pensionIncome: Math.round(totalPensionIncome), // Total workplace pension
+                    folkepensionIncome: Math.round(folkepensionIncome)
+                });
+            }
+
+            // Store final portfolio value
+            this.portfolioAtEnd = Math.max(0, portfolio);
+            this.projectedSavings = this.yearlyBreakdown.find(r => r.age === this.targetFireAge)?.portfolio || 0;
+
+            // Find years to FIRE - when portfolio ACTUALLY reaches the FIRE number
+            // This is independent of the target age - it's when FI is truly achievable
+            if (this.netWorth >= this.fireNumber) {
+                this.yearsToFire = 0;
+            } else {
+                // Find first year where portfolio >= fireNumber (while still in accumulation)
+                const fiRow = this.yearlyBreakdown.find(r => r.portfolio >= this.fireNumber && r.age < this.targetFireAge);
+                if (fiRow) {
+                    this.yearsToFire = fiRow.age - this.currentAge;
+                } else {
+                    // Check if we ever reach it even after target age (continuing to save)
+                    // Simulate continued saving beyond target age
+                    let simulatedPortfolio = this.projectedSavings;
+                    const annualReturn = (this.expectedReturn || 0) / 100;
+                    const annualContribution = (this.monthlySavings || 0) * 12;
+                    let yearsNeeded = this.targetFireAge - this.currentAge;
+
+                    for (let extraYears = 0; extraYears <= 50; extraYears++) {
+                        if (simulatedPortfolio >= this.fireNumber) {
+                            this.yearsToFire = yearsNeeded + extraYears;
+                            break;
+                        }
+                        simulatedPortfolio = simulatedPortfolio * (1 + annualReturn) + annualContribution;
+                        if (extraYears === 50) {
+                            this.yearsToFire = 999; // Never reaches FI
+                        }
+                    }
+                }
+            }
+        },
+
+        calculateRetirementIncome() {
+            // Monthly income from savings at SWR based on projected savings at FIRE
+            const savingsAtFire = this.netWorth >= this.fireNumber ? this.netWorth : this.projectedSavings;
+            let grossMonthlyFromSavings = Math.round((savingsAtFire * (this.safeWithdrawalRate / 100)) / 12);
+
+            // Calculate after-tax income if taxes enabled
+            if (this.includeTaxes) {
+                const annualGross = grossMonthlyFromSavings * 12;
+                // Check if personfradrag applies at FIRE age (before pension income starts)
+                const atFireAge = this.targetFireAge < this.folkepensionAge &&
+                                  this.targetFireAge < this.ratepensionStartAge &&
+                                  this.targetFireAge < this.livsvarigStartAge;
+                const deduction = (this.usePersonalDeduction && atFireAge) ? this.TAX.personfradrag : 0;
+                const tax = this.calcStockTax(annualGross, deduction);
+                this.monthlyIncomeFromSavings = Math.round((annualGross - tax) / 12);
+            } else {
+                this.monthlyIncomeFromSavings = grossMonthlyFromSavings;
+            }
+
+            this.monthlyIncomeTotal = this.monthlyIncomeFromSavings;
+
+            // Add multi-stream workplace pension if enabled
+            if (this.includeWorkplacePension) {
+                // Use pension payouts at folkepension age for the "total" income display
+                // This gives a representative view of income when both state + workplace pensions are active
+                const representativeAge = Math.max(this.folkepensionAge, this.livsvarigStartAge);
+                const pensions = this.calcPensionPayouts(representativeAge, this.targetFireAge);
+
+                let pensionMonthly = 0;
+
+                // Ratepension (only if still paying out at representative age)
+                if (pensions.ratepension > 0) {
+                    let ratepensionNet = pensions.ratepension;
+                    if (this.includeTaxes) {
+                        ratepensionNet = ratepensionNet - this.calcPensionTax(pensions.ratepension);
+                    }
+                    pensionMonthly += ratepensionNet / 12;
+                }
+
+                // Livsvarig (lifelong)
+                if (pensions.livsvarig > 0) {
+                    let livsvarigNet = pensions.livsvarig;
+                    if (this.includeTaxes) {
+                        livsvarigNet = livsvarigNet - this.calcPensionTax(pensions.livsvarig);
+                    }
+                    pensionMonthly += livsvarigNet / 12;
+                }
+
+                // ATP (lifelong)
+                if (this.includeATP && pensions.atp > 0) {
+                    let atpNet = pensions.atp;
+                    if (this.includeTaxes) {
+                        atpNet = atpNet - this.calcPensionTax(pensions.atp);
+                    }
+                    pensionMonthly += atpNet / 12;
+                }
+
+                // Note: Aldersopsparing is one-time, not monthly, so excluded from monthly total
+
+                this.monthlyIncomeTotal += Math.round(pensionMonthly);
+            }
+
+            // Add folkepension if enabled
+            if (this.includeFolkepension) {
+                let folkepensionMonthly = this.FOLKEPENSION.basicSingle + this.FOLKEPENSION.supplementMax;
+                if (this.includeTaxes) {
+                    const folkeTax = this.calcPensionTax(folkepensionMonthly);
+                    folkepensionMonthly = folkepensionMonthly - folkeTax;
+                }
+                this.monthlyIncomeTotal += Math.round(folkepensionMonthly);
+            }
+        },
+
+        determineStatus() {
+            // Calculate progress
+            this.progressPercent = this.fireNumber > 0 ? (this.netWorth / this.fireNumber) * 100 : 0;
+
+            // Calculate when we actually reach FI
+            const fiAge = this.currentAge + this.yearsToFire;
+            const targetAge = this.targetFireAge;
+
+            // Calculate shortfall at target age if we won't reach FI in time
+            const rowAtTarget = this.yearlyBreakdown.find(r => r.age === targetAge);
+            const portfolioAtTarget = rowAtTarget ? rowAtTarget.portfolio : 0;
+            this.shortfallAtTarget = Math.max(0, this.fireNumber - portfolioAtTarget);
+
+            // Calculate recommendations
+            this.calculateRecommendations();
+
+            // Check if portfolio depletes before life expectancy
+            const portfolioWillDeplete = this.runsOutAge > 0 && this.runsOutAge < this.lifeExpectancy;
+
+            // Determine status
+            if (this.netWorth >= this.fireNumber) {
+                this.isAlreadyFI = true;
+                this.isOnTrack = true;
+                this.statusMessage = "You're Financially Independent!";
+                this.statusSubtext = "You have enough to retire now at " + this.safeWithdrawalRate + "% SWR";
+                this.statusClass = "bg-gradient-to-br from-emerald-500 to-emerald-600";
+            } else if (portfolioWillDeplete) {
+                // Portfolio depletes before life expectancy - this is critical!
+                this.isAlreadyFI = false;
+                this.isOnTrack = false;
+                this.statusMessage = "Money Runs Out at Age " + this.runsOutAge;
+                this.statusSubtext = "Retiring at " + targetAge + " depletes savings " + (this.lifeExpectancy - this.runsOutAge) + " years too early";
+                this.statusClass = "bg-gradient-to-br from-red-500 to-rose-600 border border-red-400";
+            } else if (this.yearsToFire < 999 && fiAge <= targetAge) {
+                // Will reach FI by or before target age
+                this.isAlreadyFI = false;
+                this.isOnTrack = true;
+                this.statusMessage = "On Track to FIRE";
+                this.statusSubtext = this.yearsToFire + " years until FI (age " + fiAge + ")";
+                this.statusClass = "bg-gradient-to-br from-amber-500 to-orange-600";
+            } else if (this.yearsToFire < 999 && fiAge > targetAge) {
+                // Will reach FI but AFTER target age
+                this.isAlreadyFI = false;
+                this.isOnTrack = false;
+                const yearsLate = fiAge - targetAge;
+                this.statusMessage = "Target Age Too Ambitious";
+                this.statusSubtext = "You'll reach FI at age " + fiAge + " (" + yearsLate + " years after target)";
+                this.statusClass = "bg-gradient-to-br from-rose-500 to-pink-600 border border-rose-400";
+            } else {
+                // Will never reach FI with current trajectory
+                this.isAlreadyFI = false;
+                this.isOnTrack = false;
+                this.statusMessage = "FIRE Not Achievable";
+                this.statusSubtext = "Current savings rate won't reach your FIRE number";
+                this.statusClass = "bg-gradient-to-br from-red-500 to-rose-600 border border-red-400";
+            }
+        },
+
+        calculateRecommendations() {
+            // How much MORE per month would they need to save to reach FIRE by target age?
+            const yearsToTarget = this.targetFireAge - this.currentAge;
+            if (yearsToTarget <= 0) {
+                this.recommendedMonthlySavings = 0;
+                this.recommendedExpenses = this.monthlyExpenses;
+                return;
+            }
+
+            // Calculate required savings using FV formula, solving for PMT
+            // FV = PV*(1+r)^n + PMT*((1+r)^n - 1)/r
+            // Solve for PMT: PMT = (FV - PV*(1+r)^n) * r / ((1+r)^n - 1)
+            const r = (this.expectedReturn || 0) / 100;
+            const n = yearsToTarget;
+            const fv = this.fireNumber;
+            const pv = this.netWorth;
+
+            if (r > 0) {
+                const growthFactor = Math.pow(1 + r, n);
+                const requiredAnnual = (fv - pv * growthFactor) * r / (growthFactor - 1);
+                this.recommendedMonthlySavings = Math.max(0, Math.ceil(requiredAnnual / 12));
+            } else {
+                // No returns assumed, simple calculation
+                this.recommendedMonthlySavings = Math.max(0, Math.ceil((fv - pv) / (n * 12)));
+            }
+
+            // Alternative: What expenses would work with current savings rate?
+            // Calculate what FIRE number we CAN reach by target age
+            const annualSavings = (this.monthlySavings || 0) * 12;
+            let achievableFire = this.netWorth;
+            for (let i = 0; i < n; i++) {
+                achievableFire = achievableFire * (1 + r) + annualSavings;
+            }
+
+            // What monthly expenses would that support?
+            this.achievableFireNumber = Math.round(achievableFire);
+            this.recommendedExpenses = Math.floor((achievableFire * (this.safeWithdrawalRate / 100)) / 12);
+        },
+
+        updateCharts() {
+            this.updateSavingsChart();
+            this.updateIncomeChart();
+        },
+
+        updateSavingsChart() {
+            const canvas = document.getElementById('savingsChart');
+            if (!canvas) return;
+
+            // Destroy any existing chart on this canvas
+            const existingChart = Chart.getChart(canvas);
+            if (existingChart) {
+                existingChart.destroy();
+            }
+            this.savingsChart = null;
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+            const textColor = isDark ? '#9CA3AF' : '#6B7280';
+
+            // Sample data points (every 5 years to avoid clutter)
+            const sampledData = this.yearlyBreakdown.filter((_, i) => i % 5 === 0 || i === this.yearlyBreakdown.length - 1);
+
+            const labels = sampledData.map(row => row.age);
+            const portfolioData = sampledData.map(row => Math.max(0, row.portfolio));
+            const fireLineData = sampledData.map(() => this.fireNumber);
+
+            this.savingsChart = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Portfolio Value',
+                            data: portfolioData,
+                            borderColor: '#F59E0B',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 3
+                        },
+                        {
+                            label: 'FIRE Number',
+                            data: fireLineData,
+                            borderColor: '#10B981',
+                            borderDash: [5, 5],
+                            backgroundColor: 'transparent',
+                            tension: 0,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: textColor, boxWidth: 12 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => 'Age ' + items[0].label,
+                                label: (context) => {
+                                    return context.dataset.label + ': ' + context.parsed.y.toLocaleString('da-DK') + ' kr.';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Age', color: textColor },
+                            grid: { color: gridColor },
+                            ticks: { color: textColor }
+                        },
+                        y: {
+                            title: { display: true, text: 'Portfolio (kr.)', color: textColor },
+                            grid: { color: gridColor },
+                            ticks: {
+                                color: textColor,
+                                callback: (value) => (value / 1000000).toFixed(1) + 'M'
+                            }
+                        }
+                    }
+                }
+            });
+        },
+
+        updateIncomeChart() {
+            const canvas = document.getElementById('incomeChart');
+            if (!canvas) return;
+
+            // Destroy any existing chart on this canvas
+            const existingChart = Chart.getChart(canvas);
+            if (existingChart) {
+                existingChart.destroy();
+            }
+            this.incomeChart = null;
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#9CA3AF' : '#6B7280';
+
+            const labels = ['From Savings'];
+            const data = [this.monthlyIncomeFromSavings];
+            const colors = ['#F59E0B']; // Amber for savings
+
+            // Add multi-stream pension income (if enabled)
+            if (this.includeWorkplacePension) {
+                // Get pension payouts at a representative age (e.g., ratepension start age)
+                const representativeAge = this.ratepensionStartAge;
+                const pensions = this.calcPensionPayouts(representativeAge, this.targetFireAge);
+
+                // Add each pension type with distinct colors
+                if (pensions.ratepension > 0) {
+                    labels.push('Ratepension');
+                    data.push(Math.round(pensions.ratepension / 12)); // Monthly
+                    colors.push('#8B5CF6'); // Purple
+                }
+                if (pensions.livsvarig > 0) {
+                    labels.push('Livsvarig');
+                    data.push(Math.round(pensions.livsvarig / 12)); // Monthly
+                    colors.push('#10B981'); // Green
+                }
+                if (this.includeATP && pensions.atp > 0) {
+                    labels.push('ATP');
+                    data.push(Math.round(pensions.atp / 12)); // Monthly
+                    colors.push('#3B82F6'); // Blue
+                }
+                // Aldersopsparing is one-time, not shown in monthly chart
+            }
+
+            if (this.includeFolkepension) {
+                labels.push('Folkepension Basic', 'Folkepension Supplement');
+                data.push(this.FOLKEPENSION.basicSingle, this.FOLKEPENSION.supplementMax);
+                colors.push('#EC4899', '#F472B6'); // Pink shades
+            }
+
+            this.incomeChart = new Chart(canvas, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: textColor,
+                                padding: 12,
+                                usePointStyle: true,
+                                font: { size: 11 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return context.label + ': ' + value.toLocaleString('da-DK') + ' kr. (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        },
+
+        formatNumber(n) {
+            if (n === null || n === undefined || isNaN(n)) return '0';
+            return typeof NumberFormat !== 'undefined' ? NumberFormat.format(Math.round(n), 0) : Math.round(n).toLocaleString('da-DK');
+        },
+
+        formatInputNumber(n) {
+            if (n === 0 || n === '' || n === null || n === undefined) return '';
+            return typeof NumberFormat !== 'undefined' ? NumberFormat.format(n, 0) : Math.round(n).toLocaleString('da-DK');
+        },
+
+        parseInputNumber(str) {
+            if (!str) return 0;
+            if (typeof NumberFormat !== 'undefined') {
+                return NumberFormat.parse(str);
+            }
+            const cleaned = str.replace(/\./g, '').replace(',', '.');
+            const num = parseFloat(cleaned);
+            return isNaN(num) ? 0 : num;
+        }
+    };
+}
+</script>
+{{end}}

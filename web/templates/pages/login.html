@@ -1,0 +1,186 @@
+{{define "content"}}
+<div class="min-h-screen flex" x-data="{ email: '', password: '', loading: false }">
+    <!-- Left Panel - Branding -->
+    <div class="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#0c0c0c]">
+        <!-- Animated gradient mesh background -->
+        <div class="absolute inset-0 opacity-40">
+            <div class="absolute top-0 left-0 w-[500px] h-[500px] bg-gradient-to-br from-amber-500/30 via-transparent to-transparent rounded-full blur-3xl animate-pulse" style="animation-duration: 8s;"></div>
+            <div class="absolute bottom-0 right-0 w-[600px] h-[600px] bg-gradient-to-tl from-amber-600/20 via-transparent to-transparent rounded-full blur-3xl animate-pulse" style="animation-duration: 12s;"></div>
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-gradient-to-r from-amber-400/10 to-amber-600/10 rounded-full blur-2xl"></div>
+        </div>
+
+        <!-- Subtle grid pattern -->
+        <div class="absolute inset-0 opacity-[0.03]" style="background-image: linear-gradient(#d4af37 1px, transparent 1px), linear-gradient(90deg, #d4af37 1px, transparent 1px); background-size: 60px 60px;"></div>
+
+        <!-- Content -->
+        <div class="relative z-10 flex flex-col justify-between p-12 w-full">
+            <!-- Logo -->
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                    <svg class="w-7 h-7 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-light tracking-wide text-white">Wealth Tracker</h1>
+                    <p class="text-xs text-amber-500/80 tracking-[0.3em] uppercase">Private</p>
+                </div>
+            </div>
+
+            <!-- Middle - Feature highlight -->
+            <div class="space-y-8">
+                <div class="max-w-md">
+                    <p class="text-5xl font-extralight text-white leading-tight tracking-tight">
+                        Your wealth,<br/>
+                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-200">elegantly tracked.</span>
+                    </p>
+                </div>
+                <div class="flex items-center gap-8 text-sm text-gray-500">
+                    <div class="flex items-center gap-2">
+                        <div class="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
+                        <span>Multi-currency</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
+                        <span>Goal tracking</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
+                        <span>Analytics</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom - Stats preview -->
+            <div class="flex items-end justify-between">
+                <div class="space-y-1">
+                    <p class="text-xs text-gray-600 uppercase tracking-widest">Net Worth</p>
+                    <p class="text-3xl font-light text-white tabular-nums">2,560,227 <span class="text-lg text-amber-500">kr.</span></p>
+                </div>
+                <div class="text-right space-y-1">
+                    <p class="text-xs text-gray-600 uppercase tracking-widest">This Month</p>
+                    <p class="text-lg text-emerald-400 font-medium">+4.2%</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel - Login Form -->
+    <div class="w-full lg:w-1/2 flex items-center justify-center p-8 bg-[#0a0a0a]">
+        <div class="w-full max-w-md space-y-8">
+            <!-- Mobile Logo -->
+            <div class="lg:hidden flex items-center justify-center gap-3 mb-12">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <span class="text-xl text-white font-light">Wealth Tracker</span>
+            </div>
+
+            <!-- Header -->
+            <div class="text-center lg:text-left">
+                <h2 class="text-3xl font-light text-white">Welcome back</h2>
+                <p class="mt-2 text-gray-500 text-sm">Enter your credentials to access your portfolio</p>
+            </div>
+
+            <!-- Form -->
+            <form action="/login" method="POST" class="space-y-6" @submit="loading = true">
+                {{if .Error}}
+                <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <p class="text-sm text-red-400">{{.Error}}</p>
+                </div>
+                {{end}}
+
+                <div class="space-y-5">
+                    <!-- Email -->
+                    <div class="space-y-2">
+                        <label for="email" class="block text-xs text-gray-400 uppercase tracking-widest">Email Address</label>
+                        <div class="relative group">
+                            <input type="email"
+                                   id="email"
+                                   name="email"
+                                   x-model="email"
+                                   required
+                                   autocomplete="email"
+                                   class="w-full px-4 py-3.5 bg-white/[0.03] border border-white/10 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 transition-all duration-300"
+                                   placeholder="you@example.com">
+                            <div class="absolute inset-0 -z-10 rounded-lg bg-gradient-to-r from-amber-500/0 via-amber-500/5 to-amber-500/0 opacity-0 group-focus-within:opacity-100 blur-xl transition-opacity duration-500"></div>
+                        </div>
+                    </div>
+
+                    <!-- Password -->
+                    <div class="space-y-2">
+                        <label for="password" class="block text-xs text-gray-400 uppercase tracking-widest">Password</label>
+                        <div class="relative group">
+                            <input type="password"
+                                   id="password"
+                                   name="password"
+                                   x-model="password"
+                                   required
+                                   autocomplete="current-password"
+                                   class="w-full px-4 py-3.5 bg-white/[0.03] border border-white/10 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/20 transition-all duration-300"
+                                   placeholder="••••••••">
+                            <div class="absolute inset-0 -z-10 rounded-lg bg-gradient-to-r from-amber-500/0 via-amber-500/5 to-amber-500/0 opacity-0 group-focus-within:opacity-100 blur-xl transition-opacity duration-500"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Remember me & Forgot -->
+                <div class="flex items-center justify-between text-sm">
+                    <label class="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" name="remember" class="w-4 h-4 rounded border-white/20 bg-white/5 text-amber-500 focus:ring-amber-500/20 focus:ring-offset-0">
+                        <span class="text-gray-500 group-hover:text-gray-400 transition-colors">Remember me</span>
+                    </label>
+                    <a href="#" class="text-amber-500/80 hover:text-amber-400 transition-colors">Forgot password?</a>
+                </div>
+
+                <!-- Submit -->
+                <button type="submit"
+                        :disabled="loading || !email || !password"
+                        class="relative w-full py-4 rounded-lg text-sm font-medium uppercase tracking-widest overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed">
+                    <!-- Button background -->
+                    <div class="absolute inset-0 bg-gradient-to-r from-amber-500 to-amber-600 transition-all duration-300 group-hover:from-amber-400 group-hover:to-amber-500"></div>
+                    <!-- Shine effect -->
+                    <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                    <!-- Text -->
+                    <span class="relative text-black" x-show="!loading">Sign In</span>
+                    <span class="relative text-black flex items-center justify-center gap-2" x-show="loading" x-cloak>
+                        <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Signing in...
+                    </span>
+                </button>
+            </form>
+
+            <!-- Divider -->
+            <div class="relative">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-white/5"></div>
+                </div>
+                <div class="relative flex justify-center text-xs">
+                    <span class="px-4 bg-[#0a0a0a] text-gray-600 uppercase tracking-widest">New here?</span>
+                </div>
+            </div>
+
+            <!-- Register link -->
+            <div class="text-center">
+                <a href="/register" class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors group">
+                    Create an account
+                    <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                    </svg>
+                </a>
+            </div>
+
+            <!-- Footer -->
+            <p class="text-center text-xs text-gray-700 pt-8">
+                Protected by 256-bit encryption
+            </p>
+        </div>
+    </div>
+</div>
+
+{{end}}

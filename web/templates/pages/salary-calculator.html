@@ -1,0 +1,354 @@
+{{define "content"}}
+<div class="space-y-6" x-data="salaryCalc()">
+    <!-- Page Header -->
+    <div class="flex items-center gap-4">
+        <a href="/tools" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-hover transition-colors">
+            <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+        </a>
+        <div>
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
+                Salary Calculator (Denmark)
+            </h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Calculate your net salary after Danish taxes</p>
+        </div>
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-6">
+        <!-- Input Form -->
+        <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+            <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
+                <div class="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Salary Details</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Enter your monthly salary information</p>
+                </div>
+            </div>
+
+            <div class="p-6 space-y-5">
+                <!-- Gross Salary -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Gross Monthly Salary (kr.)
+                    </label>
+                    <div class="relative">
+                        <input type="text" :value="formatInputNumber(grossSalary)" @input="grossSalary = parseInputNumber($event.target.value); calculate()"
+                            class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all tabular-nums"
+                            placeholder="40.000" inputmode="numeric">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                    </div>
+                </div>
+
+                <!-- AM-bidrag -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        AM-bidrag (%)
+                    </label>
+                    <input type="number" x-model.number="amBidragRate" @input="calculate()"
+                        class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all"
+                        placeholder="8" min="0" max="15" step="0.1">
+                    <p class="mt-1 text-xs text-gray-400">Labor market contribution (standard: 8%)</p>
+                </div>
+
+                <!-- ATP -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        ATP Monthly (kr.)
+                    </label>
+                    <input type="number" x-model.number="atp" @input="calculate()"
+                        class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all"
+                        placeholder="99" min="0" step="1">
+                    <p class="mt-1 text-xs text-gray-400">Employee's share (standard: 99 kr.)</p>
+                </div>
+
+                <!-- Pension -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Pension Contribution (%)
+                    </label>
+                    <input type="number" x-model.number="pensionRate" @input="calculate()"
+                        class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all"
+                        placeholder="4" min="0" max="20" step="0.5">
+                    <p class="mt-1 text-xs text-gray-400">Your pension contribution (employer may add more)</p>
+                </div>
+
+                <!-- Monthly Tax Deduction (Fradrag) -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Monthly Tax Deduction / Fradrag (kr.)
+                    </label>
+                    <div class="relative">
+                        <input type="text" :value="formatInputNumber(fradrag)" @input="fradrag = parseInputNumber($event.target.value); calculate()"
+                            class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all tabular-nums"
+                            placeholder="4.000" inputmode="numeric">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-400">Personal allowance shown on your tax card</p>
+                </div>
+
+                <!-- Tax Rate -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Tax Rate / Traekprocent (%)
+                    </label>
+                    <input type="number" x-model.number="taxRate" @input="calculate()"
+                        class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all"
+                        placeholder="37" min="0" max="60" step="0.1">
+                    <p class="mt-1 text-xs text-gray-400">Your tax percentage from your tax card</p>
+                </div>
+
+                <!-- Church Tax -->
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="churchTax" x-model="churchMember" @change="calculate()"
+                        class="w-5 h-5 rounded border-gray-300 dark:border-dark-border text-emerald-600 focus:ring-emerald-500 dark:bg-dark-bg">
+                    <label for="churchTax" class="text-sm text-gray-700 dark:text-gray-300">
+                        Church member (adds ~0.7% kirkeskat)
+                    </label>
+                </div>
+
+                <!-- Fringe Benefits -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                        Taxable Fringe Benefits / Personalegoder (kr.)
+                    </label>
+                    <div class="relative">
+                        <input type="text" :value="formatInputNumber(fringeBenefits)" @input="fringeBenefits = parseInputNumber($event.target.value); calculate()"
+                            class="w-full px-4 py-3 pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all tabular-nums"
+                            placeholder="0" inputmode="numeric">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr.</span>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-400">Company car, phone, etc. (adds to taxable income)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="space-y-6">
+            <!-- Net Salary Card -->
+            <div class="rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 text-white">
+                <p class="text-sm font-medium opacity-90">Net Monthly Salary</p>
+                <p class="text-4xl font-bold mt-2" x-text="formatNumber(netSalary) + ' kr.'"></p>
+                <p class="text-sm opacity-75 mt-2">After all deductions</p>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Gross Salary</p>
+                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-2" x-text="formatNumber(grossSalary) + ' kr.'"></p>
+                </div>
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Deductions</p>
+                    <p class="text-xl font-bold text-red-500 mt-2" x-text="'-' + formatNumber(totalDeductions) + ' kr.'"></p>
+                </div>
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Effective Tax Rate</p>
+                    <p class="text-xl font-bold text-amber-600 dark:text-amber-400 mt-2" x-text="effectiveTaxRate.toFixed(1) + '%'"></p>
+                </div>
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Annual Net</p>
+                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-2" x-text="formatNumber(netSalary * 12) + ' kr.'"></p>
+                </div>
+            </div>
+
+            <!-- Breakdown -->
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-dark-border">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Deduction Breakdown</h3>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-dark-border">
+                        <span class="text-sm text-gray-600 dark:text-gray-300">Gross Salary</span>
+                        <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="formatNumber(grossSalary) + ' kr.'"></span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-dark-border">
+                        <span class="text-sm text-gray-600 dark:text-gray-300">AM-bidrag (<span x-text="amBidragRate"></span>%)</span>
+                        <span class="text-sm font-medium text-red-500" x-text="'-' + formatNumber(amBidrag) + ' kr.'"></span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-dark-border">
+                        <span class="text-sm text-gray-600 dark:text-gray-300">ATP</span>
+                        <span class="text-sm font-medium text-red-500" x-text="'-' + formatNumber(atp) + ' kr.'"></span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-dark-border" x-show="pension > 0">
+                        <span class="text-sm text-gray-600 dark:text-gray-300">Pension (<span x-text="pensionRate"></span>%)</span>
+                        <span class="text-sm font-medium text-red-500" x-text="'-' + formatNumber(pension) + ' kr.'"></span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-dark-border">
+                        <span class="text-sm text-gray-600 dark:text-gray-300">Taxable Income</span>
+                        <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="formatNumber(taxableIncome) + ' kr.'"></span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-dark-border">
+                        <span class="text-sm text-gray-600 dark:text-gray-300">Tax Deduction (fradrag)</span>
+                        <span class="text-sm font-medium text-emerald-500" x-text="'-' + formatNumber(fradrag) + ' kr.'"></span>
+                    </div>
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-dark-border">
+                        <span class="text-sm text-gray-600 dark:text-gray-300">Income Tax (<span x-text="effectiveTaxPercent.toFixed(1)"></span>%)</span>
+                        <span class="text-sm font-medium text-red-500" x-text="'-' + formatNumber(incomeTax) + ' kr.'"></span>
+                    </div>
+                    <div class="flex justify-between items-center py-3 bg-emerald-50 dark:bg-emerald-900/20 -mx-6 px-6 rounded-b-xl">
+                        <span class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Net Salary</span>
+                        <span class="text-lg font-bold text-emerald-700 dark:text-emerald-300" x-text="formatNumber(netSalary) + ' kr.'"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Salary Distribution</h3>
+                <div class="h-64">
+                    <canvas id="salaryChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+function salaryCalc() {
+    return {
+        grossSalary: 40000,
+        amBidragRate: 8,
+        atp: 99,
+        pensionRate: 4,
+        fradrag: 4000,
+        taxRate: 37,
+        churchMember: false,
+        fringeBenefits: 0,
+
+        amBidrag: 0,
+        pension: 0,
+        taxableIncome: 0,
+        incomeTax: 0,
+        netSalary: 0,
+        totalDeductions: 0,
+        effectiveTaxRate: 0,
+        effectiveTaxPercent: 0,
+        chart: null,
+
+        init() {
+            this.calculate();
+        },
+
+        calculate() {
+            const gross = this.grossSalary || 0;
+
+            // 1. Calculate AM-bidrag (on gross salary)
+            this.amBidrag = Math.round(gross * (this.amBidragRate / 100));
+
+            // 2. Calculate pension (on gross salary, pre-tax)
+            this.pension = Math.round(gross * (this.pensionRate / 100));
+
+            // 3. Calculate taxable income (A-indkomst)
+            // Taxable = Gross - AM-bidrag - ATP - Pension + Fringe benefits
+            this.taxableIncome = Math.round(gross - this.amBidrag - (this.atp || 0) - this.pension + (this.fringeBenefits || 0));
+
+            // 4. Apply tax deduction (fradrag)
+            const taxableAfterFradrag = Math.max(0, this.taxableIncome - (this.fradrag || 0));
+
+            // 5. Calculate effective tax rate (including church tax if applicable)
+            this.effectiveTaxPercent = this.taxRate + (this.churchMember ? 0.7 : 0);
+
+            // 6. Calculate income tax
+            this.incomeTax = Math.round(taxableAfterFradrag * (this.effectiveTaxPercent / 100));
+
+            // 7. Calculate net salary
+            // Net = Gross - AM-bidrag - ATP - Pension - Income Tax
+            this.netSalary = Math.round(gross - this.amBidrag - (this.atp || 0) - this.pension - this.incomeTax);
+
+            // 8. Calculate totals
+            this.totalDeductions = gross - this.netSalary;
+            this.effectiveTaxRate = gross > 0 ? (this.totalDeductions / gross) * 100 : 0;
+
+            // Update chart
+            this.updateChart();
+        },
+
+        updateChart() {
+            const ctx = document.getElementById('salaryChart');
+            if (!ctx) return;
+
+            if (this.chart) {
+                this.chart.destroy();
+            }
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#9CA3AF' : '#6B7280';
+
+            this.chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Net Salary', 'AM-bidrag', 'ATP', 'Pension', 'Income Tax'],
+                    datasets: [{
+                        data: [
+                            this.netSalary,
+                            this.amBidrag,
+                            this.atp,
+                            this.pension,
+                            this.incomeTax
+                        ],
+                        backgroundColor: [
+                            '#10B981', // emerald - net salary
+                            '#F59E0B', // amber - AM-bidrag
+                            '#8B5CF6', // violet - ATP
+                            '#3B82F6', // blue - pension
+                            '#EF4444'  // red - tax
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: textColor,
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return context.label + ': ' + value.toLocaleString('da-DK') + ' kr. (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        },
+
+        formatNumber(n) {
+            return typeof NumberFormat !== 'undefined' ? NumberFormat.format(Math.round(n), 0) : Math.round(n).toLocaleString('da-DK');
+        },
+
+        formatInputNumber(n) {
+            if (n === 0 || n === '' || n === null || n === undefined) return '';
+            return typeof NumberFormat !== 'undefined' ? NumberFormat.format(n, 0) : Math.round(n).toLocaleString('da-DK');
+        },
+
+        parseInputNumber(str) {
+            if (!str) return 0;
+            if (typeof NumberFormat !== 'undefined') {
+                return NumberFormat.parse(str);
+            }
+            // Fallback: remove thousand separators (dot for da-DK)
+            const cleaned = str.replace(/\./g, '').replace(',', '.');
+            const num = parseFloat(cleaned);
+            return isNaN(num) ? 0 : num;
+        }
+    };
+}
+</script>
+{{end}}

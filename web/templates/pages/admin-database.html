@@ -1,0 +1,99 @@
+{{define "content"}}
+<div class="space-y-6">
+    {{if .Impersonating}}
+    <div class="bg-amber-500/20 border border-amber-500/50 rounded-lg p-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <span class="text-amber-300 font-medium">You are impersonating another user</span>
+            </div>
+            <form action="/admin/return" method="POST">
+                <button type="submit" class="px-3 py-1.5 text-sm rounded bg-amber-500 text-white hover:bg-amber-600 transition-colors">
+                    Return to Admin
+                </button>
+            </form>
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
+                Database Browser
+            </h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Browse and view database tables</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="/admin/sql" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+                </svg>
+                SQL Query
+            </a>
+            <a href="/admin" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-hover transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to Admin
+            </a>
+        </div>
+    </div>
+
+    <!-- Tables Grid -->
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {{range .Tables}}
+        <a href="/admin/database/{{.Name}}" class="group">
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-6 hover:border-emerald-500 dark:hover:border-emerald-500 transition-all">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl gradient-emerald flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400">{{.Name}}</h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">{{.Count}} rows</p>
+                    </div>
+                </div>
+            </div>
+        </a>
+        {{end}}
+    </div>
+
+    <!-- All Tables List -->
+    <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-dark-border">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">All Tables</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 dark:bg-dark-hover">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Table Name</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Row Count</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 dark:divide-dark-border">
+                    {{range .Tables}}
+                    <tr class="hover:bg-gray-50 dark:hover:bg-dark-hover">
+                        <td class="px-6 py-4">
+                            <span class="font-medium text-gray-900 dark:text-white">{{.Name}}</span>
+                        </td>
+                        <td class="px-6 py-4 text-right text-gray-600 dark:text-gray-300">{{.Count}}</td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="/admin/database/{{.Name}}" class="text-emerald-600 dark:text-emerald-400 hover:underline text-sm font-medium">
+                                Browse
+                            </a>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}

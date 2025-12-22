@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# Development
+.air.toml
+.env
+*.log
+tmp/
+
+# Build artifacts
+bin/
+main
+server
+wealth_tracker
+
+# Node.js
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+tests/
+.playwright-mcp/
+*.test.go
+
+# Scripts (MitID auth not needed in container)
+scripts/
+
+# Documentation (not needed in runtime)
+docs/
+*.md
+!README.md
+
+# Local data (will be mounted as volume)
+data/
+
+# OS files
+.DS_Store
+Thumbs.db

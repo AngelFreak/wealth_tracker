@@ -1,0 +1,56 @@
+{{define "content"}}
+<div class="space-y-6">
+    {{if .Impersonating}}
+    <div class="bg-amber-500/20 border border-amber-500/50 rounded-lg p-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <span class="text-amber-300 font-medium">You are impersonating another user</span>
+            </div>
+            <form action="/admin/return" method="POST">
+                <button type="submit" class="px-3 py-1.5 text-sm rounded bg-amber-500 text-white hover:bg-amber-600 transition-colors">
+                    Return to Admin
+                </button>
+            </form>
+        </div>
+    </div>
+    {{end}}
+
+    <!-- Page Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
+                Row #{{.RowID}}
+            </h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Table: {{.TableName}}</p>
+        </div>
+        <a href="/admin/database/{{.TableName}}" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-hover transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Back to {{.TableName}}
+        </a>
+    </div>
+
+    <!-- Row Data -->
+    <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-dark-border">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Row Details</h3>
+        </div>
+        <div class="divide-y divide-gray-200 dark:divide-dark-border">
+            {{range .Columns}}
+            <div class="px-6 py-4 flex">
+                <div class="w-48 flex-shrink-0">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400">{{.}}</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <span class="text-sm text-gray-900 dark:text-white break-all">{{index $.RowData .}}</span>
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</div>
+{{end}}
