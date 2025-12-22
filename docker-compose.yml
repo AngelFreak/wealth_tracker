@@ -4,6 +4,7 @@ services:
     container_name: wealth-tracker
     ports:
       - "8080:8080"
+      - "33847:33847"  # Saxo OAuth callback
     volumes:
       # Persist SQLite database
       - ./data:/app/data

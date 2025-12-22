@@ -332,7 +332,8 @@ func AuthenticateWithOAuth(connectionID int64, appKey, appSecret, redirectURI st
 	// Clean up any existing callback server before starting a new one
 	CleanupCallbackServer(connectionID)
 
-	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%s", port))
+	// Bind to 0.0.0.0 to accept connections from outside Docker container
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%s", port))
 	if err != nil {
 		return nil, fmt.Errorf("starting callback server on port %s: %w", port, err)
 	}

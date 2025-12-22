@@ -127,16 +127,13 @@
                             <p class="text-sm text-gray-500 dark:text-gray-400" x-text="status"></p>
                             <!-- Saxo OAuth URL Display (for Docker/headless environments) -->
                             <template x-if="authUrl && brokerType === 'saxo'">
-                                <div class="mt-4 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-left">
-                                    <p class="text-xs text-emerald-400 mb-2">
-                                        <strong>Click below to open Saxo login:</strong>
-                                    </p>
+                                <div class="mt-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                                    <p class="text-xs text-emerald-400 mb-2">Click below to open Saxo login:</p>
                                     <a :href="authUrl" target="_blank" rel="noopener noreferrer"
-                                       class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-all">
-                                        <i data-lucide="external-link" class="w-4 h-4"></i>
+                                       class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-all">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg>
                                         Open Saxo Login
                                     </a>
-                                    <p class="text-[10px] text-emerald-400/70 mt-2 break-all" x-text="authUrl"></p>
                                 </div>
                             </template>
                             <p class="text-xs text-gray-400 dark:text-gray-500 mt-4">
