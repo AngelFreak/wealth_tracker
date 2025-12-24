@@ -114,6 +114,7 @@ Connect your Saxo Bank account using OAuth:
 
 - Go 1.24+
 - Node.js 18+ (for Tailwind CSS)
+- [Air](https://github.com/air-verse/air) (for hot reload)
 - Docker (optional)
 
 ### Local Setup
@@ -127,30 +128,43 @@ cd wealth_tracker
 go mod download
 npm install
 
+# Install Air for hot reload
+go install github.com/air-verse/air@latest
+
 # Build CSS
 npm run css
 
-# Run the server
-go run ./cmd/server
+# Run the server (with hot reload)
+air
 ```
 
-Access at `http://localhost:8080`
+Access at `http://localhost:8081`
 
 ### Development Commands
 
 ```bash
-# Run with live reload
-make dev
+# Start development server with hot reload (recommended)
+air
 
-# Watch CSS changes
+# Watch CSS changes (run in separate terminal)
 npm run css:watch
 
 # Run tests
-make test
+go test ./...
 
 # Build production binary
-make build
+go build -o ./bin/wealth_tracker ./cmd/server
 ```
+
+### Air Hot Reload
+
+The project includes an `.air.toml` configuration for automatic rebuilding when files change:
+
+- Watches: `.go`, `.html`, `.css`, `.js`, `.json` files
+- Excludes: `tmp/`, `vendor/`, `node_modules/`, `.git/`, `data/`
+- Auto-rebuilds and restarts the server on changes
+
+> **Note:** When adding new Tailwind CSS classes, run `npm run css` to regenerate the CSS file.
 
 ---
 
