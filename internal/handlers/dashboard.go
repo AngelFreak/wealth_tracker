@@ -86,6 +86,7 @@ func (h *DashboardHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		"NetWorthHistory":    netWorthHistory,
 		"IncludeCharts":      true,
 		"Impersonating":      impersonating == nil,
+		"DemoMode":           IsDemoMode(),
 	})
 }
 

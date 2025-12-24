@@ -144,6 +144,7 @@ func (h *GoalHandler) List(w http.ResponseWriter, r *http.Request) {
 		"ReachedGoals": reachedGoals,
 		"NetWorth":     netWorth,
 		"Categories":   categories,
+		"DemoMode":     IsDemoMode(),
 	})
 }
 

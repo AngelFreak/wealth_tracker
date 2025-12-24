@@ -1,36 +1,36 @@
 {{define "content"}}
 <div class="space-y-6" x-data="salaryCalc()">
     <!-- Page Header -->
-    <div class="flex items-center gap-4">
-        <a href="/tools" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-hover transition-colors">
+    <div class="flex items-center gap-3 sm:gap-4">
+        <a href="/tools" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-hover transition-colors flex-shrink-0">
             <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
             </svg>
         </a>
-        <div>
-            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
-                Salary Calculator (Denmark)
+        <div class="min-w-0">
+            <h1 class="text-lg sm:text-2xl font-semibold text-gray-900 dark:text-white truncate">
+                Salary Calculator <span class="text-xs sm:text-sm text-gray-400 font-normal">(DK)</span>
             </h1>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Calculate your net salary after Danish taxes</p>
+            <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1 hidden sm:block">Calculate your net salary after Danish taxes</p>
         </div>
     </div>
 
-    <div class="grid lg:grid-cols-2 gap-6">
+    <div class="grid gap-4 sm:gap-6 lg:grid-cols-2">
         <!-- Input Form -->
         <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
-            <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
-                <div class="w-10 h-10 rounded-xl gradient-emerald flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center gap-3 px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 dark:border-dark-border">
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl gradient-emerald flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
                     </svg>
                 </div>
-                <div>
-                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Salary Details</h2>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Enter your monthly salary information</p>
+                <div class="min-w-0">
+                    <h2 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Salary Details</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">Enter your monthly salary information</p>
                 </div>
             </div>
 
-            <div class="p-6 space-y-5">
+            <div class="p-4 sm:p-6 space-y-4 sm:space-y-5">
                 <!-- Gross Salary -->
                 <div>
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
@@ -128,40 +128,40 @@
         </div>
 
         <!-- Results -->
-        <div class="space-y-6">
+        <div class="space-y-4 sm:space-y-6">
             <!-- Net Salary Card -->
-            <div class="rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 text-white">
-                <p class="text-sm font-medium opacity-90">Net Monthly Salary</p>
-                <p class="text-4xl font-bold mt-2" x-text="formatNumber(netSalary) + ' kr.'"></p>
-                <p class="text-sm opacity-75 mt-2">After all deductions</p>
+            <div class="rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 sm:p-6 text-white">
+                <p class="text-xs sm:text-sm font-medium opacity-90">Net Monthly Salary</p>
+                <p class="text-2xl sm:text-4xl font-bold mt-1 sm:mt-2" x-text="formatNumber(netSalary) + ' kr.'"></p>
+                <p class="text-xs sm:text-sm opacity-75 mt-1 sm:mt-2">After all deductions</p>
             </div>
 
             <!-- Summary Cards -->
-            <div class="grid grid-cols-2 gap-4">
-                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
-                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Gross Salary</p>
-                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-2" x-text="formatNumber(grossSalary) + ' kr.'"></p>
+            <div class="grid grid-cols-2 gap-3 sm:gap-4">
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-3 sm:p-5">
+                    <p class="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Gross Salary</p>
+                    <p class="text-base sm:text-xl font-bold text-gray-900 dark:text-white mt-1 sm:mt-2 truncate" x-text="formatNumber(grossSalary) + ' kr.'"></p>
                 </div>
-                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
-                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Deductions</p>
-                    <p class="text-xl font-bold text-red-500 mt-2" x-text="'-' + formatNumber(totalDeductions) + ' kr.'"></p>
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-3 sm:p-5">
+                    <p class="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Deductions</p>
+                    <p class="text-base sm:text-xl font-bold text-red-500 mt-1 sm:mt-2 truncate" x-text="'-' + formatNumber(totalDeductions) + ' kr.'"></p>
                 </div>
-                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
-                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Effective Tax Rate</p>
-                    <p class="text-xl font-bold text-amber-600 dark:text-amber-400 mt-2" x-text="effectiveTaxRate.toFixed(1) + '%'"></p>
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-3 sm:p-5">
+                    <p class="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tax Rate</p>
+                    <p class="text-base sm:text-xl font-bold text-amber-600 dark:text-amber-400 mt-1 sm:mt-2" x-text="effectiveTaxRate.toFixed(1) + '%'"></p>
                 </div>
-                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
-                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Annual Net</p>
-                    <p class="text-xl font-bold text-gray-900 dark:text-white mt-2" x-text="formatNumber(netSalary * 12) + ' kr.'"></p>
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-3 sm:p-5">
+                    <p class="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Annual Net</p>
+                    <p class="text-base sm:text-xl font-bold text-gray-900 dark:text-white mt-1 sm:mt-2 truncate" x-text="formatNumber(netSalary * 12) + ' kr.'"></p>
                 </div>
             </div>
 
             <!-- Breakdown -->
             <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-dark-border">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Deduction Breakdown</h3>
+                <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-dark-border">
+                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Deduction Breakdown</h3>
                 </div>
-                <div class="p-6 space-y-4">
+                <div class="p-4 sm:p-6 space-y-3 sm:space-y-4">
                     <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-dark-border">
                         <span class="text-sm text-gray-600 dark:text-gray-300">Gross Salary</span>
                         <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="formatNumber(grossSalary) + ' kr.'"></span>
@@ -198,9 +198,9 @@
             </div>
 
             <!-- Chart -->
-            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Salary Distribution</h3>
-                <div class="h-64">
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-4 sm:p-6">
+                <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">Salary Distribution</h3>
+                <div class="h-48 sm:h-64">
                     <canvas id="salaryChart"></canvas>
                 </div>
             </div>

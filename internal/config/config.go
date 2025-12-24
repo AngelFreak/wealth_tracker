@@ -24,6 +24,9 @@ type Config struct {
 
 	// Environment
 	IsDevelopment bool
+
+	// Demo mode - disables broker integrations and shows demo banner
+	DemoMode bool
 }
 
 // New creates a new Config with values from environment variables or defaults.
@@ -36,6 +39,7 @@ func New() *Config {
 		SessionMaxAge:    86400 * 7, // 7 days
 		EncryptionSecret: getEnv("ENCRYPTION_SECRET", "change-me-in-production-32chars!"),
 		IsDevelopment:    getEnv("ENV", "development") == "development",
+		DemoMode:         getEnv("DEMO_MODE", "false") == "true",
 	}
 }
 

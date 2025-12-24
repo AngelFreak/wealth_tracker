@@ -68,6 +68,7 @@ func (h *CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 		"User":       user,
 		"ActiveNav":  "categories",
 		"Categories": categoriesWithCounts,
+		"DemoMode":   IsDemoMode(),
 	})
 }
 

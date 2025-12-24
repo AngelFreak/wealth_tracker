@@ -47,6 +47,7 @@ func (h *ToolsHandler) List(w http.ResponseWriter, r *http.Request) {
 		"Title":     "Tools",
 		"User":      user,
 		"ActiveNav": "tools",
+		"DemoMode":  IsDemoMode(),
 	})
 }
 
@@ -62,6 +63,7 @@ func (h *ToolsHandler) CompoundInterest(w http.ResponseWriter, r *http.Request) 
 		"Title":     "Compound Interest Calculator",
 		"User":      user,
 		"ActiveNav": "tools",
+		"DemoMode":  IsDemoMode(),
 	})
 }
 
@@ -77,6 +79,7 @@ func (h *ToolsHandler) SalaryCalculator(w http.ResponseWriter, r *http.Request) 
 		"Title":     "Salary Calculator",
 		"User":      user,
 		"ActiveNav": "tools",
+		"DemoMode":  IsDemoMode(),
 	})
 }
 
@@ -106,6 +109,7 @@ func (h *ToolsHandler) FIRECalculator(w http.ResponseWriter, r *http.Request) {
 		"User":        user,
 		"ActiveNav":   "tools",
 		"AccountData": template.JS(accountDataJSON),
+		"DemoMode":    IsDemoMode(),
 	})
 }
 

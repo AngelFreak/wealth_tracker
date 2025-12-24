@@ -101,14 +101,15 @@ func (h *TransactionHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.render(w, "transactions.html", map[string]any{
-		"Title":          "Transactions",
-		"User":           user,
-		"ActiveNav":      "transactions",
-		"Transactions":   txnsWithAccount,
-		"Accounts":       accounts,
+		"Title":           "Transactions",
+		"User":            user,
+		"ActiveNav":       "transactions",
+		"Transactions":    txnsWithAccount,
+		"Accounts":        accounts,
 		"SelectedAccount": accountID,
-		"Page":           page,
-		"HasMore":        len(transactions) == limit,
+		"Page":            page,
+		"HasMore":         len(transactions) == limit,
+		"DemoMode":        IsDemoMode(),
 	})
 }
 

@@ -113,6 +113,7 @@ func (h *AccountHandler) List(w http.ResponseWriter, r *http.Request) {
 		"Categories":     categories,
 		"AssetCount":     assetCount,
 		"LiabilityCount": liabilityCount,
+		"DemoMode":       IsDemoMode(),
 	})
 }
 

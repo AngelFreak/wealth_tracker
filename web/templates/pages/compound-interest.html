@@ -1,36 +1,36 @@
 {{define "content"}}
-<div class="space-y-6" x-data="compoundInterestCalc()">
+<div class="space-y-6 overflow-x-hidden" x-data="compoundInterestCalc()">
     <!-- Page Header -->
-    <div class="flex items-center gap-4">
-        <a href="/tools" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-hover transition-colors">
+    <div class="flex items-center gap-3 sm:gap-4">
+        <a href="/tools" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-hover transition-colors flex-shrink-0">
             <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
             </svg>
         </a>
-        <div>
-            <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
-                Compound Interest Calculator
+        <div class="min-w-0">
+            <h1 class="text-lg sm:text-2xl font-semibold text-gray-900 dark:text-white truncate">
+                Compound Interest
             </h1>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Project your savings growth over time</p>
+            <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1 hidden sm:block">Project your savings growth over time</p>
         </div>
     </div>
 
-    <div class="grid lg:grid-cols-2 gap-6">
+    <div class="grid gap-4 sm:gap-6 lg:grid-cols-2 overflow-hidden">
         <!-- Input Form -->
         <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
-            <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-dark-border">
-                <div class="w-10 h-10 rounded-xl gradient-indigo flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center gap-3 px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 dark:border-dark-border">
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl gradient-indigo flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                     </svg>
                 </div>
-                <div>
-                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Input Parameters</h2>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Adjust values to see projections</p>
+                <div class="min-w-0">
+                    <h2 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Input Parameters</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">Adjust values to see projections</p>
                 </div>
             </div>
 
-            <div class="p-6 space-y-5">
+            <div class="p-4 sm:p-6 space-y-4 sm:space-y-5">
                 <!-- Starting Amount -->
                 <div>
                     <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
@@ -93,31 +93,31 @@
         </div>
 
         <!-- Results -->
-        <div class="space-y-6">
+        <div class="space-y-4 sm:space-y-6">
             <!-- Summary Cards -->
-            <div class="grid grid-cols-2 gap-4">
-                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
-                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Final Amount</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white mt-2" x-text="formatNumber(finalAmount) + ' kr.'"></p>
+            <div class="grid grid-cols-2 gap-3 sm:gap-4">
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-3 sm:p-5">
+                    <p class="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Final Amount</p>
+                    <p class="text-base sm:text-xl font-bold text-gray-900 dark:text-white mt-1 sm:mt-2 truncate" x-text="formatNumber(finalAmount) + ' kr.'"></p>
                 </div>
-                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
-                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Interest</p>
-                    <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-2" x-text="formatNumber(totalInterest) + ' kr.'"></p>
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-3 sm:p-5">
+                    <p class="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Interest</p>
+                    <p class="text-base sm:text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1 sm:mt-2 truncate" x-text="formatNumber(totalInterest) + ' kr.'"></p>
                 </div>
-                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
-                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Contributions</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white mt-2" x-text="formatNumber(totalContributions) + ' kr.'"></p>
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-3 sm:p-5">
+                    <p class="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Contributions</p>
+                    <p class="text-base sm:text-xl font-bold text-gray-900 dark:text-white mt-1 sm:mt-2 truncate" x-text="formatNumber(totalContributions) + ' kr.'"></p>
                 </div>
-                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-5">
-                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Interest Ratio</p>
-                    <p class="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-2" x-text="interestRatio.toFixed(1) + '%'"></p>
+                <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-3 sm:p-5">
+                    <p class="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Interest Ratio</p>
+                    <p class="text-base sm:text-xl font-bold text-indigo-600 dark:text-indigo-400 mt-1 sm:mt-2" x-text="interestRatio.toFixed(1) + '%'"></p>
                 </div>
             </div>
 
             <!-- Chart -->
-            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Growth Projection</h3>
-                <div class="h-64">
+            <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-4 sm:p-6 overflow-hidden">
+                <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">Growth Projection</h3>
+                <div class="h-48 sm:h-64 -mx-2 sm:mx-0">
                     <canvas id="growthChart"></canvas>
                 </div>
             </div>
@@ -126,28 +126,28 @@
 
     <!-- Year-by-Year Breakdown -->
     <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-dark-border">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Year-by-Year Breakdown</h3>
+        <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-dark-border">
+            <h3 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Year-by-Year Breakdown</h3>
         </div>
         <div class="overflow-x-auto">
-            <table class="w-full">
+            <table class="w-full text-xs sm:text-sm">
                 <thead class="bg-gray-50 dark:bg-dark-hover">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Year</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Starting Balance</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Contributions</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Interest Earned</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ending Balance</th>
+                        <th class="px-2 sm:px-4 py-2 text-left text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Year</th>
+                        <th class="px-2 sm:px-4 py-2 text-right text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Start</th>
+                        <th class="px-2 sm:px-4 py-2 text-right text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Added</th>
+                        <th class="px-2 sm:px-4 py-2 text-right text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Interest</th>
+                        <th class="px-2 sm:px-4 py-2 text-right text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">End</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-dark-border">
                     <template x-for="row in yearlyBreakdown" :key="row.year">
                         <tr class="hover:bg-gray-50 dark:hover:bg-dark-hover">
-                            <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white" x-text="row.year"></td>
-                            <td class="px-6 py-4 text-sm text-right text-gray-600 dark:text-gray-300" x-text="formatNumber(row.startBalance) + ' kr.'"></td>
-                            <td class="px-6 py-4 text-sm text-right text-gray-600 dark:text-gray-300" x-text="formatNumber(row.contributions) + ' kr.'"></td>
-                            <td class="px-6 py-4 text-sm text-right text-emerald-600 dark:text-emerald-400" x-text="formatNumber(row.interest) + ' kr.'"></td>
-                            <td class="px-6 py-4 text-sm text-right font-medium text-gray-900 dark:text-white" x-text="formatNumber(row.endBalance) + ' kr.'"></td>
+                            <td class="px-2 sm:px-4 py-2 sm:py-3 font-medium text-gray-900 dark:text-white" x-text="row.year"></td>
+                            <td class="px-2 sm:px-4 py-2 sm:py-3 text-right text-gray-600 dark:text-gray-300 tabular-nums" x-text="formatNumber(row.startBalance)"></td>
+                            <td class="px-2 sm:px-4 py-2 sm:py-3 text-right text-gray-600 dark:text-gray-300 tabular-nums" x-text="formatNumber(row.contributions)"></td>
+                            <td class="px-2 sm:px-4 py-2 sm:py-3 text-right text-emerald-600 dark:text-emerald-400 tabular-nums" x-text="formatNumber(row.interest)"></td>
+                            <td class="px-2 sm:px-4 py-2 sm:py-3 text-right font-medium text-gray-900 dark:text-white tabular-nums" x-text="formatNumber(row.endBalance)"></td>
                         </tr>
                     </template>
                 </tbody>

@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"wealth_tracker/internal/middleware"
@@ -27,6 +28,11 @@ func NewSettingsHandler(
 	}
 }
 
+// isDemoMode checks if the app is running in demo mode.
+func isDemoMode() bool {
+	return os.Getenv("DEMO_MODE") == "true"
+}
+
 // Settings renders the settings page.
 func (h *SettingsHandler) Settings(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
@@ -39,6 +45,7 @@ func (h *SettingsHandler) Settings(w http.ResponseWriter, r *http.Request) {
 		"Title":     "Settings",
 		"User":      user,
 		"ActiveNav": "settings",
+		"DemoMode":  isDemoMode(),
 	})
 }
 

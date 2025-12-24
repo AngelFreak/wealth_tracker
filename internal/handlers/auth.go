@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"wealth_tracker/internal/auth"
@@ -36,7 +37,8 @@ func NewAuthHandler(
 // LoginPage renders the login page.
 func (h *AuthHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 	h.render(w, "login.html", map[string]any{
-		"Title": "Login",
+		"Title":    "Login",
+		"DemoMode": os.Getenv("DEMO_MODE") == "true",
 	})
 }
 
@@ -349,8 +351,9 @@ func (h *AuthHandler) render(w http.ResponseWriter, name string, data map[string
 // renderLoginError renders the login page with an error message.
 func (h *AuthHandler) renderLoginError(w http.ResponseWriter, errMsg string) {
 	h.render(w, "login.html", map[string]any{
-		"Title": "Login",
-		"Error": errMsg,
+		"Title":    "Login",
+		"Error":    errMsg,
+		"DemoMode": os.Getenv("DEMO_MODE") == "true",
 	})
 }
 

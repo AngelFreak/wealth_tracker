@@ -4,11 +4,17 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"os"
 
 	"wealth_tracker/internal/auth"
 	"wealth_tracker/internal/models"
 	"wealth_tracker/internal/repository"
 )
+
+// IsDemoMode returns true if the app is running in demo mode.
+func IsDemoMode() bool {
+	return os.Getenv("DEMO_MODE") == "true"
+}
 
 // ContextKey is a type for context keys to avoid collisions.
 type ContextKey string
@@ -114,9 +120,15 @@ func (m *AuthMiddleware) RequirePasswordChanged(next http.Handler) http.Handler 
 }
 
 // RequireAdmin is middleware that requires admin privileges.
-// Returns 403 Forbidden if user is not an admin.
+// Returns 403 Forbidden if user is not an admin or if in demo mode.
 func (m *AuthMiddleware) RequireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Block admin access in demo mode
+		if IsDemoMode() {
+			http.Error(w, "Admin panel is disabled in demo mode", http.StatusForbidden)
+			return
+		}
+
 		user := GetUser(r)
 		if user == nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
