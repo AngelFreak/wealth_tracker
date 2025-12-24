@@ -25,11 +25,9 @@
 
     <!-- Filters -->
     <div class="card p-3 sm:p-4">
-        <form method="GET" action="/transactions" class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-            <div class="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                <i data-lucide="wallet" class="w-4 h-4"></i>
-                <span class="text-xs uppercase tracking-wider font-medium hidden sm:inline">Account</span>
-            </div>
+        <form method="GET" action="/transactions" class="flex items-center gap-2 sm:gap-4">
+            <i data-lucide="wallet" class="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0"></i>
+            <span class="text-xs uppercase tracking-wider font-medium text-gray-500 dark:text-gray-400 hidden sm:inline">Account</span>
             <select name="account" onchange="this.form.submit()" class="select-sm flex-1 sm:flex-none sm:w-auto">
                 <option value="">All Accounts</option>
                 {{range .Accounts}}
