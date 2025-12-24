@@ -53,6 +53,7 @@ Thumbs.db
 
 # Testing
 .playwright-mcp/
+test/
 
 # Claude Code
 .claude/
