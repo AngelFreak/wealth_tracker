@@ -216,6 +216,9 @@ func (app *App) setupRouter() {
 	r.Use(chimw.RequestID)
 	r.Use(chimw.Compress(5))
 
+	// Security headers for all responses
+	r.Use(middleware.SecurityHeaders)
+
 	// Load user from session for all routes
 	r.Use(app.authMiddleware.LoadUser)
 
@@ -229,8 +232,10 @@ func (app *App) setupRouter() {
 	r.Get("/health", app.handleHealth)
 
 	// Public routes (redirect if already authenticated)
+	// Rate limited to prevent brute force attacks
 	r.Group(func(r chi.Router) {
 		r.Use(app.authMiddleware.RedirectIfAuthenticated)
+		r.Use(middleware.LimitAuth)
 		r.Get("/login", app.authHandler.LoginPage)
 		r.Post("/login", app.authHandler.Login)
 		r.Get("/register", app.authHandler.RegisterPage)
@@ -238,8 +243,10 @@ func (app *App) setupRouter() {
 	})
 
 	// Change password route (requires auth but NOT password changed)
+	// Rate limited to prevent password guessing
 	r.Group(func(r chi.Router) {
 		r.Use(app.authMiddleware.RequireAuth)
+		r.Use(middleware.LimitAuth)
 		r.Get("/change-password", app.authHandler.ChangePasswordPage)
 		r.Post("/change-password", app.authHandler.ChangePassword)
 	})
