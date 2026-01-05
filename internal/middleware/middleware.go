@@ -4,16 +4,17 @@ package middleware
 import (
 	"context"
 	"net/http"
-	"os"
 
 	"wealth_tracker/internal/auth"
+	"wealth_tracker/internal/config"
 	"wealth_tracker/internal/models"
 	"wealth_tracker/internal/repository"
 )
 
 // IsDemoMode returns true if the app is running in demo mode.
+// Deprecated: Use config.IsDemoMode() directly.
 func IsDemoMode() bool {
-	return os.Getenv("DEMO_MODE") == "true"
+	return config.IsDemoMode()
 }
 
 // ContextKey is a type for context keys to avoid collisions.

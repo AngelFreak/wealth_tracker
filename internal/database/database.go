@@ -74,6 +74,12 @@ func (db *DB) RunMigrations() error {
 		migrationAccountMappings,
 		migrationSyncHistory,
 		migrationBrokerIndexes,
+		// Portfolio optimization
+		migrationAllocationTargets,
+		migrationAllocationTargetsIndex,
+		// Audit logging
+		migrationAuditLog,
+		migrationAuditLogIndexes,
 	}
 
 	for i, migration := range migrations {

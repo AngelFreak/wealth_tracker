@@ -365,6 +365,49 @@ func (r *TransactionRepository) GetNetWorthHistory(userID int64) ([]NetWorthPoin
 	return result, nil
 }
 
+// GetByAccountIDPaginated retrieves transactions with full pagination info.
+func (r *TransactionRepository) GetByAccountIDPaginated(accountID int64, p Pagination) (*PaginatedResult[*models.Transaction], error) {
+	// Get total count
+	var total int64
+	err := r.db.QueryRow(`SELECT COUNT(*) FROM transactions WHERE account_id = ?`, accountID).Scan(&total)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get items
+	items, err := r.GetByAccountID(accountID, p.Limit, p.Offset)
+	if err != nil {
+		return nil, err
+	}
+
+	result := NewPaginatedResult(items, total, p)
+	return &result, nil
+}
+
+// GetByUserIDPaginated retrieves all user transactions with full pagination info.
+func (r *TransactionRepository) GetByUserIDPaginated(userID int64, p Pagination) (*PaginatedResult[*models.Transaction], error) {
+	// Get total count
+	var total int64
+	err := r.db.QueryRow(`
+		SELECT COUNT(*)
+		FROM transactions t
+		JOIN accounts a ON t.account_id = a.id
+		WHERE a.user_id = ?
+	`, userID).Scan(&total)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get items
+	items, err := r.GetByUserID(userID, p.Limit, p.Offset)
+	if err != nil {
+		return nil, err
+	}
+
+	result := NewPaginatedResult(items, total, p)
+	return &result, nil
+}
+
 // SumBalancesByUserID returns the total of latest balances across all user accounts.
 func (r *TransactionRepository) SumBalancesByUserID(userID int64) (float64, error) {
 	// Get the latest balance for each account and sum them

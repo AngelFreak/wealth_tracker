@@ -48,6 +48,30 @@ func (c *Config) Address() string {
 	return c.Host + ":" + c.Port
 }
 
+// IsDemoMode returns true if the app is running in demo mode.
+// This is a convenience method that can be used without a Config instance.
+func (c *Config) IsDemoMode() bool {
+	return c.DemoMode
+}
+
+// Global config instance for package-level IsDemoMode function.
+var globalConfig *Config
+
+// SetGlobalConfig sets the global config instance.
+func SetGlobalConfig(c *Config) {
+	globalConfig = c
+}
+
+// IsDemoMode returns true if the app is running in demo mode.
+// Uses the global config instance set by SetGlobalConfig.
+func IsDemoMode() bool {
+	if globalConfig != nil {
+		return globalConfig.DemoMode
+	}
+	// Fallback to env var if global config not set
+	return getEnv("DEMO_MODE", "false") == "true"
+}
+
 // getEnv returns the value of an environment variable or a default value.
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {

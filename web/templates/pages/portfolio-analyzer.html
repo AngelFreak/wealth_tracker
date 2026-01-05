@@ -1,0 +1,823 @@
+{{define "content"}}
+<div class="space-y-6 overflow-x-hidden" x-data="portfolioAnalyzer({{.CompositionJSON}}, {{.CategoriesJSON}}, {{.TargetsJSON}})">
+    <!-- Page Header -->
+    <div class="flex items-center gap-3 sm:gap-4">
+        <a href="/tools" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-hover transition-colors flex-shrink-0">
+            <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+        </a>
+        <div class="min-w-0">
+            <h1 class="text-lg sm:text-2xl font-semibold text-gray-900 dark:text-white truncate">
+                Portfolio Analyzer
+            </h1>
+            <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 sm:mt-1 hidden sm:block">Visualize, optimize, and rebalance your portfolio</p>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <!-- Total Value -->
+        <div class="rounded-xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-3 sm:p-4">
+            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>Total Value</span>
+            </div>
+            <div class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white tabular-nums" x-text="formatNumber(composition.total_value) + ' kr'"></div>
+        </div>
+
+        <!-- Positions -->
+        <div class="rounded-xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-3 sm:p-4">
+            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                </svg>
+                <span>Positions</span>
+            </div>
+            <div class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white" x-text="composition.total_positions || 0"></div>
+        </div>
+
+        <!-- Top Holding -->
+        <div class="rounded-xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-3 sm:p-4">
+            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                </svg>
+                <span>Top Holding</span>
+            </div>
+            <div class="text-sm sm:text-base font-bold text-gray-900 dark:text-white truncate" x-text="composition.top_holding ? (['CASH','ACCOUNT'].includes(composition.top_holding.symbol) ? composition.top_holding.account_name : composition.top_holding.symbol) : '-'"></div>
+            <div class="text-xs text-gray-500 dark:text-gray-400" x-text="composition.top_holding ? formatNumber(composition.top_holding.percentage) + '%' : ''"></div>
+        </div>
+
+        <!-- Concentration -->
+        <div class="rounded-xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border p-3 sm:p-4">
+            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                </svg>
+                <span>Top 5 Concentration</span>
+            </div>
+            <div class="text-lg sm:text-xl font-bold tabular-nums" :class="composition.concentration_pct > 50 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'" x-text="formatNumber(composition.concentration_pct || 0) + '%'"></div>
+        </div>
+    </div>
+
+    <!-- Composition Charts -->
+    <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+        <div class="flex items-center gap-3 px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 dark:border-dark-border">
+            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                </svg>
+            </div>
+            <div class="min-w-0">
+                <h2 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Portfolio Composition</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">Breakdown by category, asset type, and currency</p>
+            </div>
+        </div>
+
+        <!-- Chart Tabs -->
+        <div class="border-b border-gray-200 dark:border-dark-border px-4 sm:px-6 overflow-x-auto">
+            <nav class="flex gap-4 sm:gap-6 -mb-px min-w-max">
+                <button @click="activeChart = 'category'"
+                    :class="activeChart === 'category' ? 'border-violet-500 text-violet-600 dark:text-violet-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'"
+                    class="py-3 px-1 border-b-2 text-sm font-medium transition-colors whitespace-nowrap">
+                    Category
+                </button>
+                <button @click="activeChart = 'asset'"
+                    :class="activeChart === 'asset' ? 'border-violet-500 text-violet-600 dark:text-violet-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'"
+                    class="py-3 px-1 border-b-2 text-sm font-medium transition-colors whitespace-nowrap">
+                    Asset Type
+                </button>
+                <button @click="activeChart = 'currency'"
+                    :class="activeChart === 'currency' ? 'border-violet-500 text-violet-600 dark:text-violet-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'"
+                    class="py-3 px-1 border-b-2 text-sm font-medium transition-colors whitespace-nowrap">
+                    Currency
+                </button>
+            </nav>
+        </div>
+
+        <div class="p-4 sm:p-6">
+            <div class="grid lg:grid-cols-2 gap-6">
+                <!-- Chart -->
+                <div class="relative h-64 sm:h-80">
+                    <canvas x-ref="compositionChart"></canvas>
+                </div>
+
+                <!-- Legend / Details -->
+                <div class="space-y-2 max-h-64 sm:max-h-80 overflow-y-auto">
+                    <template x-if="activeChart === 'category'">
+                        <div class="space-y-2">
+                            <template x-for="cat in composition.by_category" :key="cat.category_id">
+                                <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-hover">
+                                    <div class="w-3 h-3 rounded-full flex-shrink-0" :style="'background-color: ' + cat.color"></div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="cat.category_name"></span>
+                                            <span class="text-sm text-gray-500 dark:text-gray-400 tabular-nums" x-text="formatNumber(cat.percentage) + '%'"></span>
+                                        </div>
+                                        <div class="text-xs text-gray-400" x-text="formatNumber(cat.value) + ' kr (' + cat.account_count + ' accounts)'"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template x-if="activeChart === 'asset'">
+                        <div class="space-y-2">
+                            <template x-for="(at, idx) in composition.by_asset_type" :key="at.asset_type">
+                                <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-hover">
+                                    <div class="w-3 h-3 rounded-full flex-shrink-0" :style="'background-color: ' + getAssetTypeColor(idx)"></div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm font-medium text-gray-900 dark:text-white truncate capitalize" x-text="at.asset_type"></span>
+                                            <span class="text-sm text-gray-500 dark:text-gray-400 tabular-nums" x-text="formatNumber(at.percentage) + '%'"></span>
+                                        </div>
+                                        <div class="text-xs text-gray-400" x-text="formatNumber(at.value) + ' kr (' + at.count + ' positions)'"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template x-if="activeChart === 'currency'">
+                        <div class="space-y-2">
+                            <template x-for="(cur, idx) in composition.by_currency" :key="cur.currency">
+                                <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-hover">
+                                    <div class="w-3 h-3 rounded-full flex-shrink-0" :style="'background-color: ' + getCurrencyColor(idx)"></div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="cur.currency"></span>
+                                            <span class="text-sm text-gray-500 dark:text-gray-400 tabular-nums" x-text="formatNumber(cur.percentage) + '%'"></span>
+                                        </div>
+                                        <div class="text-xs text-gray-400" x-text="formatNumber(cur.value) + ' kr'"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Allocation Targets -->
+    <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+        <div class="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 dark:border-dark-border">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                </div>
+                <div class="min-w-0">
+                    <h2 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Allocation Targets</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">Compare actual vs target allocation</p>
+                </div>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+                <button @click="suggestAllocation()" class="hidden sm:block px-3 py-1.5 rounded-lg border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium transition-colors whitespace-nowrap">
+                    Suggest from Current
+                </button>
+                <button @click="showTargetModal = true" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium transition-colors whitespace-nowrap">
+                    + Add
+                </button>
+            </div>
+        </div>
+
+        <div class="p-4 sm:p-6">
+            <!-- Target Type Selector -->
+            <div class="flex gap-1.5 sm:gap-2 mb-4">
+                <button @click="targetViewType = 'category'; loadComparison()"
+                    :class="targetViewType === 'category' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700' : 'bg-gray-50 dark:bg-dark-bg text-gray-600 dark:text-gray-400 border-gray-200 dark:border-dark-border'"
+                    class="px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors">
+                    Cat.
+                    <span class="hidden sm:inline">egory</span>
+                </button>
+                <button @click="targetViewType = 'asset_type'; loadComparison()"
+                    :class="targetViewType === 'asset_type' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700' : 'bg-gray-50 dark:bg-dark-bg text-gray-600 dark:text-gray-400 border-gray-200 dark:border-dark-border'"
+                    class="px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors">
+                    Asset
+                    <span class="hidden sm:inline"> Type</span>
+                </button>
+                <button @click="targetViewType = 'currency'; loadComparison()"
+                    :class="targetViewType === 'currency' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700' : 'bg-gray-50 dark:bg-dark-bg text-gray-600 dark:text-gray-400 border-gray-200 dark:border-dark-border'"
+                    class="px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors">
+                    <span class="sm:hidden">Curr.</span>
+                    <span class="hidden sm:inline">Currency</span>
+                </button>
+            </div>
+
+            <!-- Targets Table -->
+            <div class="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                <table class="w-full min-w-[320px]">
+                    <thead>
+                        <tr class="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-dark-border">
+                            <th class="text-left py-2 font-medium">Name</th>
+                            <th class="text-right py-2 font-medium">Actual</th>
+                            <th class="text-right py-2 font-medium">Target</th>
+                            <th class="text-right py-2 font-medium">Drift</th>
+                            <th class="text-right py-2 font-medium hidden sm:table-cell">Value</th>
+                            <th class="w-8 sm:w-10"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="item in comparisonItems" :key="item.key">
+                            <tr class="border-b border-gray-100 dark:border-dark-border/50 hover:bg-gray-50 dark:hover:bg-dark-hover">
+                                <td class="py-2 sm:py-3">
+                                    <div class="flex items-center gap-2">
+                                        <div x-show="item.color" class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0" :style="'background-color: ' + item.color"></div>
+                                        <span class="text-xs sm:text-sm text-gray-900 dark:text-white truncate max-w-[80px] sm:max-w-none" x-text="item.name"></span>
+                                    </div>
+                                </td>
+                                <td class="py-2 sm:py-3 text-right text-xs sm:text-sm tabular-nums text-gray-600 dark:text-gray-300" x-text="formatNumber(item.actual_pct) + '%'"></td>
+                                <td class="py-2 sm:py-3 text-right">
+                                    <span x-show="item.target_pct > 0" class="text-xs sm:text-sm tabular-nums text-gray-600 dark:text-gray-300" x-text="formatNumber(item.target_pct) + '%'"></span>
+                                    <span x-show="item.target_pct === 0" class="text-xs text-gray-400">-</span>
+                                </td>
+                                <td class="py-2 sm:py-3 text-right text-xs sm:text-sm tabular-nums">
+                                    <span x-show="item.target_pct > 0" :class="item.drift_pct > 2 ? 'text-amber-600 dark:text-amber-400' : item.drift_pct < -2 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'" x-text="(item.drift_pct >= 0 ? '+' : '') + formatNumber(item.drift_pct) + '%'"></span>
+                                </td>
+                                <td class="py-2 sm:py-3 text-right text-xs sm:text-sm tabular-nums text-gray-500 dark:text-gray-400 hidden sm:table-cell" x-text="formatNumber(item.actual_value) + ' kr'"></td>
+                                <td class="py-2 sm:py-3 text-right">
+                                    <button @click="editTarget(item)" class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                                        <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                    <tfoot x-show="comparison && comparison.total_pct > 0">
+                        <tr class="text-xs sm:text-sm font-medium">
+                            <td class="py-2 sm:py-3 text-gray-900 dark:text-white">Total</td>
+                            <td></td>
+                            <td class="py-2 sm:py-3 text-right tabular-nums" :class="comparison && Math.abs(comparison.total_pct - 100) > 0.1 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'" x-text="comparison ? formatNumber(comparison.total_pct) + '%' : ''"></td>
+                            <td class="hidden sm:table-cell" colspan="3"></td>
+                            <td class="sm:hidden" colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <p x-show="!comparisonItems.length" class="text-sm text-gray-500 dark:text-gray-400 text-center py-6 mt-2">
+                No targets set for this category. Click "Add Target" to create one.
+            </p>
+        </div>
+    </div>
+
+    <!-- Rebalancing Calculator -->
+    <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+        <div class="flex items-center gap-3 px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 dark:border-dark-border">
+            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path>
+                </svg>
+            </div>
+            <div class="min-w-0">
+                <h2 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Rebalancing Calculator</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">Calculate buy/sell actions to reach your targets</p>
+            </div>
+        </div>
+
+        <div class="p-4 sm:p-6 space-y-6">
+            <!-- New Money Input -->
+            <div>
+                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                    New Money to Invest (kr)
+                </label>
+                <div class="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                    <div class="relative flex-1">
+                        <input type="text" :value="formatInputNumber(newMoney)" @input="newMoney = parseInputNumber($event.target.value)"
+                            class="w-full px-3 sm:px-4 py-2.5 sm:py-3 pr-10 sm:pr-12 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all tabular-nums text-sm sm:text-base"
+                            placeholder="0" inputmode="numeric">
+                        <span class="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">kr</span>
+                    </div>
+                    <button @click="calculateRebalancing()" class="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm sm:text-base font-medium transition-colors whitespace-nowrap">
+                        Calculate
+                    </button>
+                </div>
+                <p class="mt-1 text-xs text-gray-400">Leave at 0 for rebalance-only</p>
+            </div>
+
+            <!-- Recommendations -->
+            <div x-show="rebalanceResult && rebalanceResult.recommendations" class="space-y-4">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Recommendations</h3>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-dark-border">
+                                <th class="text-left py-2 font-medium">Category</th>
+                                <th class="text-center py-2 font-medium">Action</th>
+                                <th class="text-right py-2 font-medium">Amount</th>
+                                <th class="text-right py-2 font-medium">Current</th>
+                                <th class="text-right py-2 font-medium">Target</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="rec in (rebalanceResult && rebalanceResult.recommendations) || []" :key="rec.target_key">
+                                <tr class="border-b border-gray-100 dark:border-dark-border/50">
+                                    <td class="py-3 text-sm text-gray-900 dark:text-white" x-text="rec.target_name"></td>
+                                    <td class="py-3 text-center">
+                                        <span x-show="rec.action === 'buy'" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+                                            BUY
+                                        </span>
+                                        <span x-show="rec.action === 'sell'" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
+                                            SELL
+                                        </span>
+                                        <span x-show="rec.action === 'hold'" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                                            HOLD
+                                        </span>
+                                    </td>
+                                    <td class="py-3 text-right text-sm tabular-nums" :class="rec.action === 'buy' ? 'text-green-600 dark:text-green-400' : rec.action === 'sell' ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'">
+                                        <span x-show="rec.action !== 'hold'" x-text="(rec.action === 'buy' ? '+' : '-') + formatNumber(rec.amount) + ' kr'"></span>
+                                        <span x-show="rec.action === 'hold'">-</span>
+                                    </td>
+                                    <td class="py-3 text-right text-sm tabular-nums text-gray-500 dark:text-gray-400" x-text="formatNumber(rec.current_pct) + '%'"></td>
+                                    <td class="py-3 text-right text-sm tabular-nums text-gray-500 dark:text-gray-400" x-text="formatNumber(rec.target_pct) + '%'"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tax Tips -->
+            <div x-show="rebalanceResult && rebalanceResult.tax_tips && rebalanceResult.tax_tips.length > 0" class="space-y-3">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    </svg>
+                    Danish Tax Tips
+                </h3>
+
+                <div class="space-y-2">
+                    <template x-for="tip in (rebalanceResult && rebalanceResult.tax_tips) || []" :key="tip.title">
+                        <div class="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3">
+                            <div class="flex items-start gap-2">
+                                <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <div>
+                                    <p class="text-sm font-medium text-amber-800 dark:text-amber-200" x-text="tip.title"></p>
+                                    <p class="text-xs text-amber-700 dark:text-amber-300 mt-0.5" x-text="tip.description"></p>
+                                    <p x-show="tip.action" class="text-xs font-medium text-amber-800 dark:text-amber-200 mt-1" x-text="tip.action"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Holdings Detail Table -->
+    <div class="rounded-2xl bg-white dark:bg-dark-surface border border-gray-200 dark:border-dark-border overflow-hidden">
+        <div class="flex items-center gap-3 px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 dark:border-dark-border">
+            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-gray-500 to-gray-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                </svg>
+            </div>
+            <div class="min-w-0">
+                <h2 class="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Holdings Detail</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">All positions sorted by value</p>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-bg">
+                        <th class="text-left py-3 px-4 font-medium">Symbol</th>
+                        <th class="text-left py-3 px-4 font-medium hidden sm:table-cell">Name</th>
+                        <th class="text-right py-3 px-4 font-medium">Value</th>
+                        <th class="text-right py-3 px-4 font-medium">%</th>
+                        <th class="text-right py-3 px-4 font-medium hidden md:table-cell">P/L</th>
+                        <th class="text-left py-3 px-4 font-medium hidden lg:table-cell">Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="h in composition.holdings" :key="h.symbol + h.account_id">
+                        <tr class="border-b border-gray-100 dark:border-dark-border/50 hover:bg-gray-50 dark:hover:bg-dark-hover">
+                            <td class="py-3 px-4">
+                                <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="['CASH','ACCOUNT'].includes(h.symbol) ? h.account_name : h.symbol"></span>
+                            </td>
+                            <td class="py-3 px-4 hidden sm:table-cell">
+                                <span class="text-sm text-gray-600 dark:text-gray-300 truncate block max-w-[200px]" x-text="h.name"></span>
+                            </td>
+                            <td class="py-3 px-4 text-right text-sm tabular-nums text-gray-900 dark:text-white" x-text="formatNumber(h.value) + ' kr'"></td>
+                            <td class="py-3 px-4 text-right text-sm tabular-nums text-gray-500 dark:text-gray-400" x-text="formatNumber(h.percentage) + '%'"></td>
+                            <td class="py-3 px-4 text-right hidden md:table-cell">
+                                <span x-show="h.profit_loss !== 0" class="text-sm tabular-nums" :class="h.profit_loss >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'" x-text="(h.profit_loss >= 0 ? '+' : '') + formatNumber(h.profit_loss) + ' kr'"></span>
+                                <span x-show="h.profit_loss === 0" class="text-sm text-gray-400">-</span>
+                            </td>
+                            <td class="py-3 px-4 hidden lg:table-cell">
+                                <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 capitalize" x-text="h.instrument_type || 'unknown'"></span>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <p x-show="!composition.holdings || !composition.holdings.length" class="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+            No holdings found. Sync your broker accounts to see your positions.
+        </p>
+    </div>
+
+    <!-- Target Edit Modal -->
+    <div x-show="showTargetModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div x-show="showTargetModal" @click="showTargetModal = false" class="fixed inset-0 bg-black/50 transition-opacity"></div>
+
+            <div x-show="showTargetModal" @click.stop
+                x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="opacity-0 scale-95"
+                x-transition:enter-end="opacity-100 scale-100"
+                x-transition:leave="transition ease-in duration-150"
+                x-transition:leave-start="opacity-100 scale-100"
+                x-transition:leave-end="opacity-0 scale-95"
+                class="relative w-full max-w-md rounded-2xl bg-white dark:bg-dark-surface shadow-xl">
+
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-dark-border">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white" x-text="editingTarget.id ? 'Edit Target' : 'Add Target'"></h3>
+                </div>
+
+                <div class="p-6 space-y-4">
+                    <!-- Target Type -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Target Type</label>
+                        <select x-model="editingTarget.target_type" @change="onTargetTypeChange()"
+                            class="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all">
+                            <option value="category">Category</option>
+                            <option value="asset_type">Asset Type</option>
+                            <option value="currency">Currency</option>
+                        </select>
+                    </div>
+
+                    <!-- Target Key -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Target</label>
+                        <select x-show="editingTarget.target_type === 'category'" x-model="editingTarget.target_key"
+                            class="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all">
+                            <option value="">Select category...</option>
+                            <template x-for="cat in categories" :key="cat.id">
+                                <option :value="String(cat.id)" x-text="cat.name"></option>
+                            </template>
+                        </select>
+                        <select x-show="editingTarget.target_type === 'asset_type'" x-model="editingTarget.target_key"
+                            class="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all">
+                            <option value="">Select asset type...</option>
+                            <option value="stock">Stock</option>
+                            <option value="etf">ETF</option>
+                            <option value="fund">Fund</option>
+                            <option value="bond">Bond</option>
+                            <option value="crypto">Crypto</option>
+                            <option value="cash">Cash</option>
+                        </select>
+                        <select x-show="editingTarget.target_type === 'currency'" x-model="editingTarget.target_key"
+                            class="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all">
+                            <option value="">Select currency...</option>
+                            <option value="DKK">DKK</option>
+                            <option value="EUR">EUR</option>
+                            <option value="USD">USD</option>
+                            <option value="GBP">GBP</option>
+                            <option value="SEK">SEK</option>
+                            <option value="NOK">NOK</option>
+                        </select>
+                    </div>
+
+                    <!-- Target Percentage -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Target Percentage</label>
+                        <div class="relative">
+                            <input type="number" x-model.number="editingTarget.target_pct" min="0" max="100" step="0.1"
+                                class="w-full px-4 py-2.5 pr-10 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all tabular-nums"
+                                placeholder="0">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 border-t border-gray-200 dark:border-dark-border flex justify-between items-center">
+                    <button x-show="editingTarget.id" @click="deleteTarget()" class="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors">
+                        Delete
+                    </button>
+                    <div x-show="!editingTarget.id"></div>
+                    <div class="flex gap-3">
+                        <button @click="showTargetModal = false" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-hover transition-colors">
+                            Cancel
+                        </button>
+                        <button @click="saveTarget()" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+                            Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+function portfolioAnalyzer(compositionData, categoriesData, targetsData) {
+    return {
+        composition: compositionData || {
+            total_value: 0,
+            total_positions: 0,
+            by_category: [],
+            by_asset_type: [],
+            by_currency: [],
+            holdings: [],
+            concentration_pct: 0
+        },
+        categories: categoriesData || [],
+        targets: targetsData || [],
+        activeChart: 'category',
+        targetViewType: 'category',
+        comparison: null,
+        comparisonItems: [],
+        newMoney: 0,
+        rebalanceResult: null,
+        showTargetModal: false,
+        editingTarget: {
+            id: null,
+            target_type: 'category',
+            target_key: '',
+            target_pct: 0
+        },
+        chart: null,
+
+        init() {
+            this.$nextTick(() => {
+                this.renderChart();
+                this.loadComparison();
+            });
+
+            this.$watch('activeChart', () => {
+                this.renderChart();
+            });
+        },
+
+        // Number formatting
+        formatNumber(n) {
+            if (n === null || n === undefined) return '0';
+            return new Intl.NumberFormat('da-DK', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2
+            }).format(n);
+        },
+
+        formatInputNumber(n) {
+            if (!n && n !== 0) return '';
+            return new Intl.NumberFormat('da-DK').format(n);
+        },
+
+        parseInputNumber(str) {
+            if (!str) return 0;
+            return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+        },
+
+        // Colors
+        getAssetTypeColor(idx) {
+            const colors = ['#8b5cf6', '#ec4899', '#06b6d4', '#f59e0b', '#10b981', '#6366f1', '#f97316', '#84cc16'];
+            return colors[idx % colors.length];
+        },
+
+        getCurrencyColor(idx) {
+            const colors = ['#3b82f6', '#22c55e', '#eab308', '#ef4444', '#a855f7', '#14b8a6'];
+            return colors[idx % colors.length];
+        },
+
+        // Chart rendering
+        renderChart() {
+            const canvas = this.$refs.compositionChart;
+            if (!canvas) return;
+
+            if (this.chart) {
+                this.chart.destroy();
+            }
+
+            let data, labels, colors;
+
+            if (this.activeChart === 'category') {
+                data = this.composition.by_category?.map(c => c.value) || [];
+                labels = this.composition.by_category?.map(c => c.category_name) || [];
+                colors = this.composition.by_category?.map(c => c.color) || [];
+            } else if (this.activeChart === 'asset') {
+                data = this.composition.by_asset_type?.map(a => a.value) || [];
+                labels = this.composition.by_asset_type?.map(a => a.asset_type) || [];
+                colors = this.composition.by_asset_type?.map((_, i) => this.getAssetTypeColor(i)) || [];
+            } else {
+                data = this.composition.by_currency?.map(c => c.value) || [];
+                labels = this.composition.by_currency?.map(c => c.currency) || [];
+                colors = this.composition.by_currency?.map((_, i) => this.getCurrencyColor(i)) || [];
+            }
+
+            if (!data.length) {
+                return;
+            }
+
+            const isDark = document.documentElement.classList.contains('dark');
+
+            this.chart = new Chart(canvas, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: isDark ? '#1f2937' : '#ffffff',
+                            titleColor: isDark ? '#f9fafb' : '#111827',
+                            bodyColor: isDark ? '#d1d5db' : '#4b5563',
+                            borderColor: isDark ? '#374151' : '#e5e7eb',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: true,
+                            callbacks: {
+                                label: (ctx) => {
+                                    const value = ctx.parsed;
+                                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                    const pct = ((value / total) * 100).toFixed(1);
+                                    return `${this.formatNumber(value)} kr (${pct}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        },
+
+        // API calls
+        async loadComparison() {
+            try {
+                const resp = await fetch(`/api/portfolio/comparison?type=${this.targetViewType}`);
+                if (resp.ok) {
+                    this.comparison = await resp.json();
+                    this.comparisonItems = this.comparison.items || [];
+                }
+            } catch (e) {
+                console.error('Failed to load comparison:', e);
+            }
+        },
+
+        async calculateRebalancing() {
+            try {
+                const resp = await fetch(`/api/portfolio/rebalance?type=${this.targetViewType}&new_money=${this.newMoney}`);
+                if (resp.ok) {
+                    this.rebalanceResult = await resp.json();
+                }
+            } catch (e) {
+                console.error('Failed to calculate rebalancing:', e);
+            }
+        },
+
+        async saveTarget() {
+            if (!this.editingTarget.target_key || this.editingTarget.target_pct < 0) {
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/portfolio/targets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.editingTarget)
+                });
+
+                if (resp.ok) {
+                    this.showTargetModal = false;
+                    this.loadComparison();
+                    // Refresh targets
+                    const targetsResp = await fetch('/api/portfolio/targets');
+                    if (targetsResp.ok) {
+                        this.targets = await targetsResp.json();
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to save target:', e);
+            }
+        },
+
+        async deleteTarget() {
+            if (!this.editingTarget.id) return;
+
+            try {
+                const resp = await fetch(`/api/portfolio/targets?id=${this.editingTarget.id}`, {
+                    method: 'DELETE'
+                });
+
+                if (resp.ok) {
+                    this.showTargetModal = false;
+                    this.loadComparison();
+                }
+            } catch (e) {
+                console.error('Failed to delete target:', e);
+            }
+        },
+
+        editTarget(item) {
+            // Find existing target for this item
+            const existing = this.targets.find(t =>
+                t.target_type === this.targetViewType && t.target_key === item.key
+            );
+
+            if (existing) {
+                this.editingTarget = { ...existing };
+            } else {
+                this.editingTarget = {
+                    id: null,
+                    target_type: this.targetViewType,
+                    target_key: item.key,
+                    target_pct: item.target_pct || 0
+                };
+            }
+            this.showTargetModal = true;
+        },
+
+        onTargetTypeChange() {
+            this.editingTarget.target_key = '';
+        },
+
+        // Suggest allocation based on current portfolio composition
+        async suggestAllocation() {
+            let items = [];
+            let keyField = '';
+            let targetType = this.targetViewType;
+
+            // Get items based on current view type
+            if (targetType === 'category') {
+                items = this.composition.by_category || [];
+                keyField = 'category_id';
+            } else if (targetType === 'asset_type') {
+                items = this.composition.by_asset_type || [];
+                keyField = 'asset_type';
+            } else if (targetType === 'currency') {
+                items = this.composition.by_currency || [];
+                keyField = 'currency';
+            }
+
+            if (!items.length) {
+                alert('No portfolio data to suggest from');
+                return;
+            }
+
+            // Round percentages to nearest 5% and ensure they sum to 100%
+            let suggestions = items.map(item => ({
+                key: String(item[keyField]),
+                pct: Math.round(item.percentage / 5) * 5
+            })).filter(s => s.pct > 0);
+
+            // Adjust to sum to 100%
+            let total = suggestions.reduce((sum, s) => sum + s.pct, 0);
+            if (total !== 100 && suggestions.length > 0) {
+                // Add/subtract difference from largest allocation
+                let largest = suggestions.reduce((max, s) => s.pct > max.pct ? s : max, suggestions[0]);
+                largest.pct += (100 - total);
+            }
+
+            // Save each suggestion as a target
+            for (const suggestion of suggestions) {
+                try {
+                    await fetch('/api/portfolio/targets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            target_type: targetType,
+                            target_key: suggestion.key,
+                            target_pct: suggestion.pct
+                        })
+                    });
+                } catch (e) {
+                    console.error('Failed to save target:', e);
+                }
+            }
+
+            // Refresh
+            await this.loadComparison();
+            const targetsResp = await fetch('/api/portfolio/targets');
+            if (targetsResp.ok) {
+                this.targets = await targetsResp.json();
+            }
+        }
+    };
+}
+</script>
+{{end}}

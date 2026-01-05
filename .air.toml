@@ -1,0 +1,41 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  # Entry point for the application
+  entrypoint = "./tmp/wealth_tracker"
+  # Build command
+  cmd = "go build -o ./tmp/wealth_tracker ./cmd/server"
+  # Delay before rebuild (in ms)
+  delay = 500
+  # Directories to exclude from watching
+  exclude_dir = ["tmp", "vendor", "node_modules", ".git", "data", ".playwright-mcp", ".claude"]
+  # Files to exclude
+  exclude_file = []
+  # Regex patterns to exclude
+  exclude_regex = ["_test.go", ".*_templ.go"]
+  exclude_unchanged = false
+  follow_symlink = false
+  # Additional directories to watch
+  include_dir = []
+  # File extensions to watch
+  include_ext = ["go", "html", "css", "js", "json"]
+  kill_delay = "2s"
+  log = "tmp/build-errors.log"
+  send_interrupt = false
+  stop_on_error = false
+
+[color]
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  time = false
+
+[misc]
+  clean_on_exit = true
+
+[screen]
+  clear_on_rebuild = false

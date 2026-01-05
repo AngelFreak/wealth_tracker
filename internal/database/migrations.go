@@ -252,3 +252,48 @@ ALTER TABLE broker_connections ADD COLUMN app_secret TEXT;
 const migrationAddSaxoRedirectURI = `
 ALTER TABLE broker_connections ADD COLUMN redirect_uri TEXT;
 `
+
+// migrationAllocationTargets stores user-defined portfolio allocation targets.
+// Used by the Portfolio Analyzer to compare actual vs target allocations.
+const migrationAllocationTargets = `
+CREATE TABLE IF NOT EXISTS allocation_targets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    target_type TEXT NOT NULL,
+    target_key TEXT NOT NULL,
+    target_pct REAL NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, target_type, target_key)
+);
+`
+
+// migrationAllocationTargetsIndex adds index for efficient user lookup
+const migrationAllocationTargetsIndex = `
+CREATE INDEX IF NOT EXISTS idx_allocation_targets_user ON allocation_targets(user_id);
+`
+
+// migrationAuditLog stores audit entries for tracking user and admin actions.
+const migrationAuditLog = `
+CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    actor_id INTEGER NOT NULL,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id INTEGER,
+    old_values TEXT,
+    new_values TEXT,
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+`
+
+// migrationAuditLogIndexes adds indexes for efficient audit log queries
+const migrationAuditLogIndexes = `
+CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at);
+`

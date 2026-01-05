@@ -186,3 +186,22 @@ type SyncHistory struct {
 	CompletedAt     *time.Time `json:"completed_at,omitempty"`
 	DurationMs      int64      `json:"duration_ms,omitempty"`
 }
+
+// AllocationTarget represents a user-defined portfolio allocation target.
+// Used by the Portfolio Analyzer to compare actual vs desired allocations.
+type AllocationTarget struct {
+	ID         int64     `json:"id"`
+	UserID     int64     `json:"user_id"`
+	TargetType string    `json:"target_type"` // "category", "asset_type", "currency"
+	TargetKey  string    `json:"target_key"`  // Category ID, asset type name, or currency code
+	TargetPct  float64   `json:"target_pct"`  // Target percentage (0-100)
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+// Target type constants for AllocationTarget
+const (
+	TargetTypeCategory  = "category"
+	TargetTypeAssetType = "asset_type"
+	TargetTypeCurrency  = "currency"
+)

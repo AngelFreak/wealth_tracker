@@ -1,9 +1,10 @@
 // Package handlers provides HTTP handlers for the wealth tracker.
 package handlers
 
-import "os"
+import "wealth_tracker/internal/config"
 
 // IsDemoMode returns true if the app is running in demo mode.
+// Deprecated: Use config.IsDemoMode() directly.
 func IsDemoMode() bool {
-	return os.Getenv("DEMO_MODE") == "true"
+	return config.IsDemoMode()
 }
