@@ -3,6 +3,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -86,36 +87,57 @@ func (rl *RateLimiter) Limit(next http.Handler) http.Handler {
 	})
 }
 
+// Package-level rate limiters initialized once to prevent memory leaks.
+// Each limiter is created on first use (lazy initialization) and reused.
+var (
+	strictLimiter *RateLimiter
+	authLimiter   *RateLimiter
+	apiLimiter    *RateLimiter
+)
+
 // LimitStrict is middleware for sensitive endpoints with stricter limits.
 // Uses 1 request per 2 seconds with burst of 3.
 func LimitStrict(next http.Handler) http.Handler {
-	limiter := NewRateLimiter(0.5, 3)
-	return limiter.Limit(next)
+	if strictLimiter == nil {
+		strictLimiter = NewRateLimiter(0.5, 3)
+	}
+	return strictLimiter.Limit(next)
 }
 
 // LimitAuth is middleware for auth endpoints.
 // Uses 1 request per second with burst of 5.
 func LimitAuth(next http.Handler) http.Handler {
-	limiter := NewRateLimiter(1, 5)
-	return limiter.Limit(next)
+	if authLimiter == nil {
+		authLimiter = NewRateLimiter(1, 5)
+	}
+	return authLimiter.Limit(next)
 }
 
 // LimitAPI is middleware for API endpoints.
 // Uses 10 requests per second with burst of 20.
 func LimitAPI(next http.Handler) http.Handler {
-	limiter := NewRateLimiter(10, 20)
-	return limiter.Limit(next)
+	if apiLimiter == nil {
+		apiLimiter = NewRateLimiter(10, 20)
+	}
+	return apiLimiter.Limit(next)
 }
 
 // getIP extracts the client IP from the request.
+// For X-Forwarded-For, only the first IP (original client) is used
+// to prevent rate limit bypass via header spoofing.
 func getIP(r *http.Request) string {
 	// Check X-Forwarded-For first (for reverse proxies)
+	// Format: "client, proxy1, proxy2" - we want only the client IP
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return xff
+		// Extract first IP (the original client)
+		if idx := strings.Index(xff, ","); idx != -1 {
+			return strings.TrimSpace(xff[:idx])
+		}
+		return strings.TrimSpace(xff)
 	}
 	// Check X-Real-IP
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
+		return strings.TrimSpace(xri)
 	}
 	// Fall back to RemoteAddr
 	return r.RemoteAddr
