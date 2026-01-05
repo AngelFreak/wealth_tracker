@@ -4,9 +4,10 @@
 *.dll
 *.so
 *.dylib
-main
-server
-wealth_tracker
+/main
+/server
+/wealth_tracker
+cmd/server/wealth_tracker
 bin/
 
 # Test binary
