@@ -30,9 +30,12 @@ func New(dbPath string) (*DB, error) {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
 
-	// Configure connection pool - SQLite doesn't support concurrent writes
-	sqlDB.SetMaxOpenConns(1)
-	sqlDB.SetMaxIdleConns(1)
+	// Configure connection pool
+	// SQLite in WAL mode supports multiple concurrent readers with one writer.
+	// Setting MaxOpenConns > 1 allows concurrent read operations.
+	// Write operations are serialized by SQLite's locking mechanism.
+	sqlDB.SetMaxOpenConns(10)
+	sqlDB.SetMaxIdleConns(2)
 
 	// Enable foreign keys and WAL mode via PRAGMA
 	pragmas := []string{
@@ -80,6 +83,8 @@ func (db *DB) RunMigrations() error {
 		// Audit logging
 		migrationAuditLog,
 		migrationAuditLogIndexes,
+		// Performance optimizations
+		migrationPerformanceIndexes,
 	}
 
 	for i, migration := range migrations {

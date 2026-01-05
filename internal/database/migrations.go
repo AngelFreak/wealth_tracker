@@ -221,6 +221,22 @@ CREATE INDEX IF NOT EXISTS idx_account_mappings_connection ON account_mappings(c
 CREATE INDEX IF NOT EXISTS idx_sync_history_connection ON sync_history(connection_id);
 `
 
+// migrationPerformanceIndexes adds indexes for frequently queried columns to improve performance.
+// These address N+1 query patterns and common filter operations.
+const migrationPerformanceIndexes = `
+-- Composite index for transaction queries ordered by date (used in GetLatestBalance, pagination)
+CREATE INDEX IF NOT EXISTS idx_transactions_account_date_id ON transactions(account_id, transaction_date DESC, id DESC);
+
+-- Index for accounts filtered by category (used in category totals calculation)
+CREATE INDEX IF NOT EXISTS idx_accounts_category ON accounts(category_id);
+
+-- Index for holdings cleanup query (DeleteStaleHoldings)
+CREATE INDEX IF NOT EXISTS idx_holdings_account_updated ON holdings(account_id, last_updated);
+
+-- Index for sync history filtered by status
+CREATE INDEX IF NOT EXISTS idx_sync_history_status ON sync_history(status, started_at DESC);
+`
+
 // migrationAddBrokerCPR adds the CPR column to broker_connections for Signicat verification.
 // CPR is required for MitID-CPR authentication flow used by Nordnet.
 const migrationAddBrokerCPR = `
