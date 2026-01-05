@@ -58,6 +58,7 @@ tests/
 
 # Claude Code
 .claude/
+CLAUDE.md
 
 # Build artifacts
 dist/
