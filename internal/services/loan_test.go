@@ -156,6 +156,49 @@ func TestBuildSummary_SimpleOwnedAsset(t *testing.T) {
 	}
 }
 
+// TestBuildSummary_StatementBackedLoan models an account-statement loan
+// (principal 0): the outstanding balance is the magnitude of the signed
+// running total, and the disbursement/fees don't scramble the split.
+func TestBuildSummary_StatementBackedLoan(t *testing.T) {
+	loan := &models.Loan{
+		Name: "Andelslån", LoanType: models.LoanTypeSplit,
+		Principal: 0, PropertyValue: 1195000, Currency: "DKK",
+	}
+	teis := participant(1, "Teis", 50, true)
+	signe := participant(2, "Signe", 50, false)
+
+	// Disbursement (negative), then repayments. Net = -100,000 → owed 100,000.
+	payments := []*models.LoanPayment{
+		{ParticipantID: 1, Amount: -150000}, // disbursement (no person "contributed" this)
+		{ParticipantID: 1, Amount: 30000},   // Teis repays
+		{ParticipantID: 2, Amount: 20000},   // Signe repays
+	}
+
+	s := BuildSummary(loan, []*models.LoanParticipant{teis, signe}, payments)
+
+	// netMovement = -150000+30000+20000 = -100000 → remaining 100000.
+	if s.Remaining != 100000 {
+		t.Errorf("Remaining = %v, want 100000", s.Remaining)
+	}
+	// Contributions = positive only: total 50000; fair share each 25000.
+	if s.TotalPaid != 50000 {
+		t.Errorf("TotalPaid (positive contributions) = %v, want 50000", s.TotalPaid)
+	}
+	psT := findParticipant(t, s, "Teis")
+	psS := findParticipant(t, s, "Signe")
+	// Teis contributed 30k vs fair 25k → owed 5k; Signe 20k vs 25k → owes 5k.
+	if psT.Balance != 5000 {
+		t.Errorf("Teis balance = %v, want +5000", psT.Balance)
+	}
+	if psS.Balance != -5000 {
+		t.Errorf("Signe balance = %v, want -5000", psS.Balance)
+	}
+	// Self equity: 50% property (597500) - 50% remaining (50000) + receivable 5000.
+	if s.SelfAsset != 597500 || s.SelfLoanShare != 50000 || s.SelfReceivable != 5000 {
+		t.Errorf("self asset=%v loan=%v recv=%v, want 597500/50000/5000", s.SelfAsset, s.SelfLoanShare, s.SelfReceivable)
+	}
+}
+
 // TestBuildSummary_LentLoan: money the user lent to a friend. The
 // outstanding amount is an asset (a receivable), not a liability.
 func TestBuildSummary_LentLoan(t *testing.T) {

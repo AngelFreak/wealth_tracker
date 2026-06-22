@@ -100,32 +100,43 @@ func (s *LoanService) Summarize(loanID int64) (*models.LoanSummary, error) {
 // validated, but is robust to ownership not summing to exactly 100 (it
 // uses whatever percentages are present).
 func BuildSummary(loan *models.Loan, participants []*models.LoanParticipant, payments []*models.LoanPayment) *models.LoanSummary {
-	// Total paid down across all participants.
-	totalPaid := 0.0
-	for _, p := range payments {
-		totalPaid += p.Amount
-	}
-
-	// Per-participant contributions.
+	// netMovement is the signed sum of every row. For a statement-backed
+	// loan (principal 0) the outstanding balance is driven entirely by
+	// this: a disbursement is negative, repayments positive, so the
+	// running total is negative while in debt.
+	//
+	// totalContributed is the sum of POSITIVE amounts only — the money
+	// people have actually put toward the loan. The settlement split
+	// ("who owes whom") is based on this, not on netMovement, so the
+	// disbursement and fees don't scramble each person's fair share.
+	netMovement := 0.0
+	totalContributed := 0.0
 	contributed := make(map[int64]float64, len(participants))
 	for _, pay := range payments {
-		contributed[pay.ParticipantID] += pay.Amount
+		netMovement += pay.Amount
+		if pay.Amount > 0 {
+			totalContributed += pay.Amount
+			contributed[pay.ParticipantID] += pay.Amount
+		}
 	}
 
-	remaining := loan.Principal - totalPaid
+	// Outstanding = principal minus net movement. With principal 0 and a
+	// net-negative statement this is the positive amount still owed. A
+	// fully-repaid (or net-positive) loan clamps to 0.
+	remaining := loan.Principal - netMovement
 	if remaining < 0 {
 		remaining = 0
 	}
 
 	summary := &models.LoanSummary{
 		Loan:         loan,
-		TotalPaid:    roundMoney(totalPaid),
+		TotalPaid:    roundMoney(totalContributed),
 		Remaining:    roundMoney(remaining),
 		Participants: make([]models.ParticipantSummary, 0, len(participants)),
 	}
 
 	for _, p := range participants {
-		fairShare := (p.OwnershipPct / 100) * totalPaid
+		fairShare := (p.OwnershipPct / 100) * totalContributed
 		contrib := contributed[p.ID]
 		balance := contrib - fairShare
 

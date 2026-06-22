@@ -297,7 +297,19 @@
                 <form action="/loans/{{.Loan.ID}}/import" method="POST" enctype="multipart/form-data" class="space-y-4">
                     <div>
                         <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">CSV file</label>
-                        <input type="file" name="file" accept=".csv,text/csv" required class="block w-full text-sm text-gray-600 dark:text-gray-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-brand-600 file:text-white hover:file:bg-brand-700">
+                        <input type="file" name="file" accept=".csv,text/csv" required
+                            class="block w-full text-sm text-gray-600 dark:text-gray-300 rounded-xl border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-bg p-2
+                                   file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 file:cursor-pointer cursor-pointer">
+                    </div>
+
+                    <!-- Who paid: default attribution for this import -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Who paid (default)</label>
+                        <select name="default_participant_id" class="select">
+                            <option value="">Use payer rules, then me for the rest</option>
+                            {{range .Participants}}<option value="{{.ID}}">Everyone in this file → {{.Name}}</option>{{end}}
+                        </select>
+                        <p class="text-[11px] text-gray-400 mt-1">Pick a person to attribute every row to them, or leave on rules (e.g. “Fra Teis” → Teis) with unmatched rows going to you.</p>
                     </div>
                     <div class="flex items-center justify-between pt-2">
                         <button type="button" @click="showImport = false; showRules = true" class="text-xs text-amber-500 hover:text-amber-400">Set up payer rules first</button>
