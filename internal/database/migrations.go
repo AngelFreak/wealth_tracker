@@ -396,3 +396,37 @@ ALTER TABLE loans ADD COLUMN liability_account_id INTEGER REFERENCES accounts(id
 const migrationAddAccountManagedByLoan = `
 ALTER TABLE accounts ADD COLUMN managed_by_loan_id INTEGER REFERENCES loans(id) ON DELETE CASCADE;
 `
+
+// migrationLoanImportRules stores per-loan payer rules: when an imported
+// posting's description contains match_text, the payment is attributed to
+// the named participant. First match (lowest id) wins.
+const migrationLoanImportRules = `
+CREATE TABLE IF NOT EXISTS loan_import_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+    match_text TEXT NOT NULL,
+    participant_id INTEGER NOT NULL REFERENCES loan_participants(id) ON DELETE CASCADE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_loan_import_rules_loan ON loan_import_rules(loan_id);
+`
+
+// migrationAddPaymentImportHash adds a dedup key to loan_payments. The
+// hash is sha256(date|amount|description); a unique index per loan makes
+// re-importing the same statement a no-op.
+const migrationAddPaymentImportHash = `
+ALTER TABLE loan_payments ADD COLUMN import_hash TEXT;
+`
+
+// migrationAddPaymentSource records whether a payment was entered
+// manually or came from a CSV import.
+const migrationAddPaymentSource = `
+ALTER TABLE loan_payments ADD COLUMN source TEXT DEFAULT 'manual';
+`
+
+// migrationLoanPaymentImportHashIndex enforces dedup: at most one payment
+// per (loan, import_hash). NULL hashes (manual entries) are not affected
+// by SQLite's unique-index treatment of NULLs.
+const migrationLoanPaymentImportHashIndex = `
+CREATE UNIQUE INDEX IF NOT EXISTS idx_loan_payments_loan_hash ON loan_payments(loan_id, import_hash);
+`

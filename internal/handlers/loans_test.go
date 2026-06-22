@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -266,5 +269,71 @@ func TestLoanHandler_DeleteParticipant_CannotRemoveSelf(t *testing.T) {
 	}
 	if ps, _ := loanRepo.GetParticipants(loanID); len(ps) != 1 {
 		t.Errorf("self participant should remain, got %d participants", len(ps))
+	}
+}
+
+// buildMultipartCSV builds a multipart request body with a CSV file field.
+func buildMultipartCSV(t *testing.T, csv string) (*bytes.Buffer, string) {
+	t.Helper()
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	fw, err := mw.CreateFormFile("file", "statement.csv")
+	if err != nil {
+		t.Fatalf("create form file: %v", err)
+	}
+	if _, err := io.WriteString(fw, csv); err != nil {
+		t.Fatalf("write csv: %v", err)
+	}
+	mw.Close()
+	return &body, mw.FormDataContentType()
+}
+
+func TestLoanHandler_ImportCSV_CreatesPaymentsAndDedups(t *testing.T) {
+	handler, loanRepo, owner, _ := setupLoanHandlerTest(t)
+
+	loanID, _ := loanRepo.Create(&models.Loan{
+		UserID: owner.ID, Name: "Apartment", LoanType: models.LoanTypeSplit,
+		Principal: 500000, Currency: "DKK", IsActive: true,
+	})
+	loanRepo.AddParticipant(&models.LoanParticipant{LoanID: loanID, Name: "Me", OwnershipPct: 100, IsSelf: true})
+
+	csv := ";Fra Teis;0400 1;0400 2;4.000,00;;;02-06-2026;;;;;;;\n;Til primær;0400 2;0400 1;-800,00;;;10-06-2026;;;;;;;\n"
+
+	doImport := func() *httptest.ResponseRecorder {
+		body, ctype := buildMultipartCSV(t, csv)
+		req := httptest.NewRequest("POST", "/loans/"+strconv.FormatInt(loanID, 10)+"/import", body)
+		req.Header.Set("Content-Type", ctype)
+		req = req.WithContext(context.WithValue(req.Context(), middleware.UserContextKey, owner))
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("id", strconv.FormatInt(loanID, 10))
+		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		rec := httptest.NewRecorder()
+		handler.ImportCSV(rec, req)
+		return rec
+	}
+
+	rec := doImport()
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("ImportCSV status = %d, want 303", rec.Code)
+	}
+	payments, _ := loanRepo.GetPayments(loanID)
+	if len(payments) != 2 {
+		t.Fatalf("after import have %d payments, want 2", len(payments))
+	}
+	// One of them must be a withdrawal (negative).
+	var withdrawals int
+	for _, p := range payments {
+		if p.Amount < 0 {
+			withdrawals++
+		}
+	}
+	if withdrawals != 1 {
+		t.Errorf("withdrawals = %d, want 1", withdrawals)
+	}
+
+	// Re-import the same file: dedup, no new payments.
+	doImport()
+	if after, _ := loanRepo.GetPayments(loanID); len(after) != 2 {
+		t.Errorf("after re-import have %d payments, want 2 (dedup)", len(after))
 	}
 }

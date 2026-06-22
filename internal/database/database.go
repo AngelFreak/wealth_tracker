@@ -90,6 +90,8 @@ func (db *DB) RunMigrations() error {
 		migrationLoanParticipants,
 		migrationLoanPayments,
 		migrationLoanIndexes,
+		// Loan CSV import: payer rules table
+		migrationLoanImportRules,
 	}
 
 	for i, migration := range migrations {
@@ -117,11 +119,18 @@ func (db *DB) RunMigrations() error {
 		migrationAddLoanAssetAccount,
 		migrationAddLoanLiabilityAccount,
 		migrationAddAccountManagedByLoan,
+		// Loan CSV import: payment dedup columns
+		migrationAddPaymentImportHash,
+		migrationAddPaymentSource,
 	}
 	for _, migration := range alterMigrations {
 		// Ignore "duplicate column" errors for idempotency
 		db.Exec(migration)
 	}
+
+	// The payment dedup index depends on the import_hash column added by
+	// the ALTER migrations above, so it must run after them.
+	db.Exec(migrationLoanPaymentImportHashIndex)
 
 	// Run DROP COLUMN migrations for deprecated password columns
 	// These may fail on older SQLite versions (< 3.35) - that's okay, columns just stay unused
