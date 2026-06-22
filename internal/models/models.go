@@ -287,8 +287,9 @@ type LoanPayment struct {
 	PaymentType   string    `json:"payment_type"` // down_payment | regular | extra | withdrawal
 	PaymentDate   time.Time `json:"payment_date"`
 	Description   string    `json:"description,omitempty"`
-	ImportHash    string    `json:"-"`      // dedup key for imported rows (empty for manual)
-	Source        string    `json:"source"` // manual | import
+	ImportHash    string    `json:"-"`         // dedup key for imported rows (empty for manual)
+	Source        string    `json:"source"`    // manual | import
+	IsShared      bool      `json:"is_shared"` // credited to all participants by ownership %
 	CreatedAt     time.Time `json:"created_at"`
 }
 

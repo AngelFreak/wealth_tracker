@@ -228,9 +228,9 @@ func (r *LoanRepository) AddPayment(p *models.LoanPayment) (int64, error) {
 		importHash = p.ImportHash
 	}
 	result, err := r.db.Exec(`
-		INSERT INTO loan_payments (loan_id, participant_id, amount, payment_type, payment_date, description, import_hash, source)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, p.LoanID, p.ParticipantID, p.Amount, p.PaymentType, p.PaymentDate.Format("2006-01-02"), p.Description, importHash, source)
+		INSERT INTO loan_payments (loan_id, participant_id, amount, payment_type, payment_date, description, import_hash, source, is_shared)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, p.LoanID, p.ParticipantID, p.Amount, p.PaymentType, p.PaymentDate.Format("2006-01-02"), p.Description, importHash, source, boolToInt(p.IsShared))
 	if err != nil {
 		return 0, err
 	}
@@ -250,7 +250,7 @@ func (r *LoanRepository) PaymentHashExists(loanID int64, importHash string) (boo
 // GetPayments returns all payments of a loan, newest first.
 func (r *LoanRepository) GetPayments(loanID int64) ([]*models.LoanPayment, error) {
 	rows, err := r.db.Query(`
-		SELECT id, loan_id, participant_id, amount, payment_type, payment_date, description, source, created_at
+		SELECT id, loan_id, participant_id, amount, payment_type, payment_date, description, source, is_shared, created_at
 		FROM loan_payments
 		WHERE loan_id = ?
 		ORDER BY payment_date DESC, id DESC
@@ -265,7 +265,8 @@ func (r *LoanRepository) GetPayments(loanID int64) ([]*models.LoanPayment, error
 		p := &models.LoanPayment{}
 		var description, source sql.NullString
 		var paymentDate string
-		if err := rows.Scan(&p.ID, &p.LoanID, &p.ParticipantID, &p.Amount, &p.PaymentType, &paymentDate, &description, &source, &p.CreatedAt); err != nil {
+		var isShared int
+		if err := rows.Scan(&p.ID, &p.LoanID, &p.ParticipantID, &p.Amount, &p.PaymentType, &paymentDate, &description, &source, &isShared, &p.CreatedAt); err != nil {
 			return nil, err
 		}
 		if description.Valid {
@@ -274,6 +275,7 @@ func (r *LoanRepository) GetPayments(loanID int64) ([]*models.LoanPayment, error
 		if source.Valid {
 			p.Source = source.String
 		}
+		p.IsShared = isShared == 1
 		p.PaymentDate = parseDate(paymentDate)
 		payments = append(payments, p)
 	}
@@ -286,11 +288,12 @@ func (r *LoanRepository) GetPaymentByID(id int64) (*models.LoanPayment, error) {
 	p := &models.LoanPayment{}
 	var description, source sql.NullString
 	var paymentDate string
+	var isShared int
 	err := r.db.QueryRow(`
-		SELECT id, loan_id, participant_id, amount, payment_type, payment_date, description, source, created_at
+		SELECT id, loan_id, participant_id, amount, payment_type, payment_date, description, source, is_shared, created_at
 		FROM loan_payments
 		WHERE id = ?
-	`, id).Scan(&p.ID, &p.LoanID, &p.ParticipantID, &p.Amount, &p.PaymentType, &paymentDate, &description, &source, &p.CreatedAt)
+	`, id).Scan(&p.ID, &p.LoanID, &p.ParticipantID, &p.Amount, &p.PaymentType, &paymentDate, &description, &source, &isShared, &p.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -303,16 +306,37 @@ func (r *LoanRepository) GetPaymentByID(id int64) (*models.LoanPayment, error) {
 	if source.Valid {
 		p.Source = source.String
 	}
+	p.IsShared = isShared == 1
 	p.PaymentDate = parseDate(paymentDate)
 	return p, nil
 }
 
-// UpdatePaymentParticipant reassigns a payment to a different
-// participant (used to correct who-paid after an import).
+// UpdatePaymentParticipant reassigns a payment to a single participant
+// (clearing the shared flag). Used to correct who-paid after an import.
 func (r *LoanRepository) UpdatePaymentParticipant(paymentID, participantID int64) error {
 	result, err := r.db.Exec(`
-		UPDATE loan_payments SET participant_id = ? WHERE id = ?
+		UPDATE loan_payments SET participant_id = ?, is_shared = 0 WHERE id = ?
 	`, participantID, paymentID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return errors.New("payment not found")
+	}
+	return nil
+}
+
+// SetPaymentShared marks a payment as shared by all participants
+// (credited to each by ownership %). participant_id is left as-is but
+// ignored by the settlement math while shared.
+func (r *LoanRepository) SetPaymentShared(paymentID int64) error {
+	result, err := r.db.Exec(`
+		UPDATE loan_payments SET is_shared = 1 WHERE id = ?
+	`, paymentID)
 	if err != nil {
 		return err
 	}

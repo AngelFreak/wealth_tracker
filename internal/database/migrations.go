@@ -424,6 +424,14 @@ const migrationAddPaymentSource = `
 ALTER TABLE loan_payments ADD COLUMN source TEXT DEFAULT 'manual';
 `
 
+// migrationAddPaymentShared marks a payment as shared by all
+// participants. A shared payment is credited to each participant by their
+// ownership percentage (net-neutral to the who-owes-whom split), so its
+// participant_id is ignored.
+const migrationAddPaymentShared = `
+ALTER TABLE loan_payments ADD COLUMN is_shared INTEGER DEFAULT 0;
+`
+
 // migrationLoanPaymentImportHashIndex enforces dedup: at most one payment
 // per (loan, import_hash). NULL hashes (manual entries) are not affected
 // by SQLite's unique-index treatment of NULLs.

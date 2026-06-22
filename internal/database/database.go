@@ -122,6 +122,8 @@ func (db *DB) RunMigrations() error {
 		// Loan CSV import: payment dedup columns
 		migrationAddPaymentImportHash,
 		migrationAddPaymentSource,
+		// Shared (everyone) payments
+		migrationAddPaymentShared,
 	}
 	for _, migration := range alterMigrations {
 		// Ignore "duplicate column" errors for idempotency
