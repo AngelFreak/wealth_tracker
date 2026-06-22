@@ -133,9 +133,10 @@
                     <td class="px-5 py-3 text-sm text-gray-900 dark:text-white">
                         {{if gt (len $.Participants) 1}}
                         <form action="/loans/{{$.Loan.ID}}/payments/{{.ID}}/payer" method="POST">
-                            <select name="participant_id" onchange="this.form.submit()" class="bg-transparent text-sm text-gray-900 dark:text-white border border-transparent hover:border-gray-200 dark:hover:border-dark-border rounded-lg px-2 py-1 -ml-2 cursor-pointer focus:outline-none focus:border-amber-500">
-                                {{$pid := .ParticipantID}}
-                                {{range $.Participants}}<option value="{{.ID}}" {{if eq .ID $pid}}selected{{end}}>{{.Name}}</option>{{end}}
+                            <select name="participant_id" onchange="this.form.submit()" class="text-sm rounded-lg px-2 py-1 -ml-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-surface text-gray-900 dark:text-white">
+                                {{$pid := .ParticipantID}}{{$shared := .IsShared}}
+                                <option value="shared" class="bg-white dark:bg-dark-surface text-gray-900 dark:text-white" {{if $shared}}selected{{end}}>Everyone (shared)</option>
+                                {{range $.Participants}}<option value="{{.ID}}" class="bg-white dark:bg-dark-surface text-gray-900 dark:text-white" {{if and (not $shared) (eq .ID $pid)}}selected{{end}}>{{.Name}}</option>{{end}}
                             </select>
                         </form>
                         {{else}}
@@ -183,6 +184,7 @@
                     <div>
                         <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Who paid</label>
                         <select name="participant_id" required class="select">
+                            {{if gt (len .Participants) 1}}<option value="shared">Everyone (shared)</option>{{end}}
                             {{range .Participants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
                         </select>
                     </div>

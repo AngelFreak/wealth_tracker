@@ -199,6 +199,41 @@ func TestBuildSummary_StatementBackedLoan(t *testing.T) {
 	}
 }
 
+// TestBuildSummary_SharedPayment: a payment marked shared is credited to
+// each participant by ownership %, so it pays down the balance without
+// shifting the who-owes-whom split.
+func TestBuildSummary_SharedPayment(t *testing.T) {
+	loan := &models.Loan{
+		Name: "Apartment", LoanType: models.LoanTypeSplit,
+		Principal: 500000, PropertyValue: 500000, Currency: "DKK",
+	}
+	a := participant(1, "A", 50, true)
+	b := participant(2, "B", 50, false)
+
+	// A pays 100k (their own), then a 200k SHARED payment (50/50).
+	payments := []*models.LoanPayment{
+		{ParticipantID: 1, Amount: 100000},
+		{ParticipantID: 1, Amount: 200000, IsShared: true}, // participant_id ignored
+	}
+
+	s := BuildSummary(loan, []*models.LoanParticipant{a, b}, payments)
+
+	// Total contributed 300k; remaining 200k.
+	if s.Remaining != 200000 {
+		t.Errorf("Remaining = %v, want 200000", s.Remaining)
+	}
+	// Contributions: A = 100k + 100k(shared half) = 200k; B = 100k(shared half).
+	// Fair share each = 150k. A overpaid 50k → B owes A 50k.
+	psA := findParticipant(t, s, "A")
+	psB := findParticipant(t, s, "B")
+	if psA.Contributed != 200000 || psA.Balance != 50000 {
+		t.Errorf("A = %+v, want contributed 200k / balance +50k", psA)
+	}
+	if psB.Contributed != 100000 || psB.Balance != -50000 {
+		t.Errorf("B = %+v, want contributed 100k / balance -50k", psB)
+	}
+}
+
 // TestBuildSummary_LentLoan: money the user lent to a friend. The
 // outstanding amount is an asset (a receivable), not a liability.
 func TestBuildSummary_LentLoan(t *testing.T) {

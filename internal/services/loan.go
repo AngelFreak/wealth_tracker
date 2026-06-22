@@ -114,8 +114,18 @@ func BuildSummary(loan *models.Loan, participants []*models.LoanParticipant, pay
 	contributed := make(map[int64]float64, len(participants))
 	for _, pay := range payments {
 		netMovement += pay.Amount
-		if pay.Amount > 0 {
-			totalContributed += pay.Amount
+		if pay.Amount <= 0 {
+			continue
+		}
+		totalContributed += pay.Amount
+		if pay.IsShared {
+			// A shared payment is credited to every participant by their
+			// ownership share, so it pays down the balance without tilting
+			// the who-owes-whom split.
+			for _, p := range participants {
+				contributed[p.ID] += (p.OwnershipPct / 100) * pay.Amount
+			}
+		} else {
 			contributed[pay.ParticipantID] += pay.Amount
 		}
 	}

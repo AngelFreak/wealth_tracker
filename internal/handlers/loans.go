@@ -486,16 +486,30 @@ func (h *LoanHandler) RecordPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	participantID, err := strconv.ParseInt(r.FormValue("participant_id"), 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid participant", http.StatusBadRequest)
-		return
-	}
-	// Ensure the participant belongs to this loan.
-	participant, err := h.loanRepo.GetParticipantByID(participantID)
-	if err != nil || participant == nil || participant.LoanID != loan.ID {
-		http.Error(w, "Participant not found", http.StatusNotFound)
-		return
+	// "shared" attributes the payment to everyone by ownership %. The
+	// participant_id column is NOT NULL, so we store the self participant
+	// as a placeholder; the settlement math ignores it while shared.
+	isShared := r.FormValue("participant_id") == "shared"
+	var participantID int64
+	if isShared {
+		participantID = h.selfParticipantID(loan.ID)
+		if participantID == 0 {
+			http.Error(w, "Add yourself as a participant first", http.StatusBadRequest)
+			return
+		}
+	} else {
+		var err error
+		participantID, err = strconv.ParseInt(r.FormValue("participant_id"), 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid participant", http.StatusBadRequest)
+			return
+		}
+		// Ensure the participant belongs to this loan.
+		participant, err := h.loanRepo.GetParticipantByID(participantID)
+		if err != nil || participant == nil || participant.LoanID != loan.ID {
+			http.Error(w, "Participant not found", http.StatusNotFound)
+			return
+		}
 	}
 
 	amount := parseFloat(r.FormValue("amount"))
@@ -523,6 +537,7 @@ func (h *LoanHandler) RecordPayment(w http.ResponseWriter, r *http.Request) {
 		PaymentType:   paymentType,
 		PaymentDate:   paymentDate,
 		Description:   strings.TrimSpace(r.FormValue("description")),
+		IsShared:      isShared,
 	}); err != nil {
 		log.Printf("Error recording payment: %v", err)
 		http.Error(w, "Failed to record payment", http.StatusInternalServerError)
@@ -596,6 +611,18 @@ func (h *LoanHandler) UpdatePaymentPayer(w http.ResponseWriter, r *http.Request)
 	payment, err := h.loanRepo.GetPaymentByID(paymentID)
 	if err != nil || payment == nil || payment.LoanID != loan.ID {
 		http.Error(w, "Payment not found", http.StatusNotFound)
+		return
+	}
+
+	// "shared" attributes the payment to everyone by ownership %.
+	if r.FormValue("participant_id") == "shared" {
+		if err := h.loanRepo.SetPaymentShared(paymentID); err != nil {
+			log.Printf("Error sharing payment: %v", err)
+			http.Error(w, "Failed to update payer", http.StatusInternalServerError)
+			return
+		}
+		h.sync(loan.ID)
+		http.Redirect(w, r, "/loans/"+strconv.FormatInt(loan.ID, 10), http.StatusSeeOther)
 		return
 	}
 
