@@ -313,3 +313,60 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
 CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at);
 `
+
+// migrationLoans stores loans the user owes, has lent out, or co-owns.
+// The outstanding principal is derived from loan_payments, not stored,
+// so it can never drift from the payment history.
+const migrationLoans = `
+CREATE TABLE IF NOT EXISTS loans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    loan_type TEXT NOT NULL DEFAULT 'owed',
+    principal REAL NOT NULL,
+    property_value REAL DEFAULT 0,
+    currency TEXT DEFAULT 'DKK',
+    interest_rate REAL DEFAULT 0,
+    start_date DATE,
+    is_active INTEGER DEFAULT 1,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+`
+
+// migrationLoanParticipants stores the parties to a loan. A simple loan
+// has a single participant at 100%; a split loan has several. Exactly
+// one participant per loan should have is_self = 1 (the user).
+const migrationLoanParticipants = `
+CREATE TABLE IF NOT EXISTS loan_participants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    ownership_pct REAL NOT NULL DEFAULT 100,
+    is_self INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+`
+
+// migrationLoanPayments stores contributions made by participants toward
+// a loan. Every payment reduces the outstanding principal.
+const migrationLoanPayments = `
+CREATE TABLE IF NOT EXISTS loan_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+    participant_id INTEGER NOT NULL REFERENCES loan_participants(id) ON DELETE CASCADE,
+    amount REAL NOT NULL,
+    payment_type TEXT DEFAULT 'regular',
+    payment_date DATE NOT NULL,
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+`
+
+// migrationLoanIndexes adds indexes for the loan-related tables.
+const migrationLoanIndexes = `
+CREATE INDEX IF NOT EXISTS idx_loans_user ON loans(user_id);
+CREATE INDEX IF NOT EXISTS idx_loan_participants_loan ON loan_participants(loan_id);
+CREATE INDEX IF NOT EXISTS idx_loan_payments_loan ON loan_payments(loan_id);
+CREATE INDEX IF NOT EXISTS idx_loan_payments_participant ON loan_payments(participant_id);
+`
