@@ -130,7 +130,18 @@
                 {{range .Payments}}
                 <tr class="hover:bg-gray-50 dark:hover:bg-dark-hover transition-colors">
                     <td class="px-5 py-3 text-sm text-gray-600 dark:text-gray-300">{{.PaymentDate.Format "2 Jan 2006"}}</td>
-                    <td class="px-5 py-3 text-sm text-gray-900 dark:text-white">{{index $.ParticipantNames .ParticipantID}}</td>
+                    <td class="px-5 py-3 text-sm text-gray-900 dark:text-white">
+                        {{if gt (len $.Participants) 1}}
+                        <form action="/loans/{{$.Loan.ID}}/payments/{{.ID}}/payer" method="POST">
+                            <select name="participant_id" onchange="this.form.submit()" class="bg-transparent text-sm text-gray-900 dark:text-white border border-transparent hover:border-gray-200 dark:hover:border-dark-border rounded-lg px-2 py-1 -ml-2 cursor-pointer focus:outline-none focus:border-amber-500">
+                                {{$pid := .ParticipantID}}
+                                {{range $.Participants}}<option value="{{.ID}}" {{if eq .ID $pid}}selected{{end}}>{{.Name}}</option>{{end}}
+                            </select>
+                        </form>
+                        {{else}}
+                        {{index $.ParticipantNames .ParticipantID}}
+                        {{end}}
+                    </td>
                     <td class="px-5 py-3">
                         {{if .IsWithdrawal}}
                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-red-500/10 text-red-500 border border-red-500/20">Borrowed</span>
