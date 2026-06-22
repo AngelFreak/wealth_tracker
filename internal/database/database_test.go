@@ -143,7 +143,7 @@ func TestRunMigrations_Idempotent(t *testing.T) {
 		t.Fatalf("counting tables: %v", err)
 	}
 
-	expectedCount := 14 // users, categories, accounts, transactions, goals, currency_rates, sessions + broker_connections, broker_sessions, holdings, account_mappings, sync_history + allocation_targets + audit_log
+	expectedCount := 17 // users, categories, accounts, transactions, goals, currency_rates, sessions + broker_connections, broker_sessions, holdings, account_mappings, sync_history + allocation_targets + audit_log + loans, loan_participants, loan_payments
 	if tableCount != expectedCount {
 		t.Errorf("table count = %d, want %d", tableCount, expectedCount)
 	}

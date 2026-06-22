@@ -58,6 +58,7 @@ type App struct {
 	exportHandler      *handlers.ExportHandler
 	brokerHandler      *handlers.BrokerHandler
 	portfolioHandler   *handlers.PortfolioHandler
+	loanHandler        *handlers.LoanHandler
 }
 
 func main() {
@@ -109,6 +110,7 @@ func main() {
 	mappingRepo := repository.NewAccountMappingRepository(db)
 	syncHistoryRepo := repository.NewSyncHistoryRepository(db)
 	allocationTargetRepo := repository.NewAllocationTargetRepository(db)
+	loanRepo := repository.NewLoanRepository(db)
 
 	// Get scripts directory for MitID authentication
 	workDir, _ := os.Getwd()
@@ -120,6 +122,9 @@ func main() {
 	// Create portfolio service
 	portfolioService := services.NewPortfolioService(accountRepo, holdingRepo, categoryRepo, transactionRepo, allocationTargetRepo)
 
+	// Create loan service (settlement + net-worth math)
+	loanService := services.NewLoanService(loanRepo)
+
 	// Create session manager
 	sessionManager := auth.NewSessionManager(db)
 
@@ -128,7 +133,7 @@ func main() {
 
 	// Create handlers
 	authHandler := handlers.NewAuthHandler(templates, userRepo, sessionManager)
-	dashHandler := handlers.NewDashboardHandler(templates, accountRepo, transactionRepo, goalRepo, categoryRepo)
+	dashHandler := handlers.NewDashboardHandler(templates, accountRepo, transactionRepo, goalRepo, categoryRepo, loanService)
 	categoryHandler := handlers.NewCategoryHandler(templates, categoryRepo, accountRepo)
 	accountHandler := handlers.NewAccountHandler(templates, accountRepo, categoryRepo, transactionRepo, holdingRepo)
 	transactionHandler := handlers.NewTransactionHandler(templates, transactionRepo, accountRepo, categoryRepo)
@@ -139,6 +144,7 @@ func main() {
 	exportHandler := handlers.NewExportHandler(accountRepo, transactionRepo, categoryRepo, goalRepo)
 	brokerHandler := handlers.NewBrokerHandler(templates, brokerConnRepo, mappingRepo, holdingRepo, syncHistoryRepo, accountRepo, syncService)
 	portfolioHandler := handlers.NewPortfolioHandler(templates, portfolioService, allocationTargetRepo, categoryRepo)
+	loanHandler := handlers.NewLoanHandler(templates, loanRepo, loanService)
 
 	// Create application
 	app := &App{
@@ -168,6 +174,7 @@ func main() {
 		exportHandler:      exportHandler,
 		brokerHandler:      brokerHandler,
 		portfolioHandler:   portfolioHandler,
+		loanHandler:        loanHandler,
 	}
 
 	// Setup router
@@ -277,6 +284,17 @@ func (app *App) setupRouter() {
 		r.Get("/goals", app.goalHandler.List)
 		r.Post("/goals", app.goalHandler.Create)
 		r.Post("/goals/{id}", app.goalHandler.Update)
+
+		// Loans (owed / lent / split co-ownership)
+		r.Get("/loans", app.loanHandler.List)
+		r.Post("/loans", app.loanHandler.Create)
+		r.Get("/loans/{id}", app.loanHandler.Detail)
+		r.Post("/loans/{id}", app.loanHandler.Update)
+		r.Post("/loans/{id}/delete", app.loanHandler.Delete)
+		r.Post("/loans/{id}/participants", app.loanHandler.AddParticipant)
+		r.Post("/loans/{id}/participants/{participantID}/delete", app.loanHandler.DeleteParticipant)
+		r.Post("/loans/{id}/payments", app.loanHandler.RecordPayment)
+		r.Post("/loans/{id}/payments/{paymentID}/delete", app.loanHandler.DeletePayment)
 
 		// Settings
 		r.Get("/settings", app.settingsHandler.Settings)
