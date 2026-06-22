@@ -220,12 +220,20 @@ const (
 	LoanTypeSplit = "split" // A co-owned loan shared between participants.
 )
 
-// Loan payment type constants. All payment types reduce the outstanding
-// principal — the type is informational, used for display/grouping.
+// Loan payment type constants. Payments reduce the outstanding principal;
+// a withdrawal (a negative amount) increases it (borrowing more). The
+// type is informational, used for display/grouping.
 const (
 	PaymentTypeDownPayment = "down_payment" // Initial lump-sum at the start.
 	PaymentTypeRegular     = "regular"      // Ordinary monthly payment.
 	PaymentTypeExtra       = "extra"        // Extra savings put toward the loan.
+	PaymentTypeWithdrawal  = "withdrawal"   // Borrowed more / drawn from the account.
+)
+
+// Loan payment source constants.
+const (
+	PaymentSourceManual = "manual" // Entered by hand.
+	PaymentSourceImport = "import" // Imported from a bank CSV.
 )
 
 // Loan represents a loan the user owes, has lent out, or co-owns (split).
@@ -268,16 +276,33 @@ type LoanParticipant struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
-// LoanPayment is a single contribution made by a participant toward a
-// loan. Every payment reduces the outstanding principal.
+// LoanPayment is a single movement on a loan by a participant. A
+// positive amount is a payment (reduces the outstanding principal); a
+// negative amount is a withdrawal / extra borrowing (increases it).
 type LoanPayment struct {
 	ID            int64     `json:"id"`
 	LoanID        int64     `json:"loan_id"`
 	ParticipantID int64     `json:"participant_id"`
 	Amount        float64   `json:"amount"`
-	PaymentType   string    `json:"payment_type"` // down_payment | regular | extra
+	PaymentType   string    `json:"payment_type"` // down_payment | regular | extra | withdrawal
 	PaymentDate   time.Time `json:"payment_date"`
 	Description   string    `json:"description,omitempty"`
+	ImportHash    string    `json:"-"`      // dedup key for imported rows (empty for manual)
+	Source        string    `json:"source"` // manual | import
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+// IsWithdrawal reports whether this entry increases the loan (money
+// borrowed / drawn) rather than paying it down.
+func (p *LoanPayment) IsWithdrawal() bool { return p.Amount < 0 }
+
+// LoanImportRule attributes an imported posting to a participant when the
+// posting's description contains MatchText (case-insensitive).
+type LoanImportRule struct {
+	ID            int64     `json:"id"`
+	LoanID        int64     `json:"loan_id"`
+	MatchText     string    `json:"match_text"`
+	ParticipantID int64     `json:"participant_id"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 

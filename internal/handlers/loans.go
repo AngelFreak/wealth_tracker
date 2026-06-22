@@ -169,6 +169,7 @@ func (h *LoanHandler) Detail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	categories, _ := h.categoryRepo.GetByUserID(user.ID)
+	rules, _ := h.loanRepo.GetImportRules(loan.ID)
 
 	h.render(w, "loan-detail.html", map[string]any{
 		"Title":            loan.Name,
@@ -180,8 +181,46 @@ func (h *LoanHandler) Detail(w http.ResponseWriter, r *http.Request) {
 		"Payments":         payments,
 		"ParticipantNames": participantNames,
 		"Categories":       categories,
+		"Rules":            rules,
+		"ImportSummary":    importSummaryFromQuery(r),
 		"DemoMode":         IsDemoMode(),
 	})
+}
+
+// importSummaryFromQuery turns the ?imported=&dup=&… params left by an
+// import redirect into a short human message, or "" if none.
+func importSummaryFromQuery(r *http.Request) string {
+	q := r.URL.Query()
+	switch q.Get("import") {
+	case "nofile":
+		return "No file was selected."
+	case "toobig":
+		return "That file is too large to import."
+	case "parsefail":
+		return "The file could not be read as a bank CSV."
+	case "noself":
+		return "Add yourself as a participant before importing."
+	case "fail":
+		return "The import failed. Please try again."
+	}
+	if q.Get("imported") == "" {
+		return ""
+	}
+	imported := q.Get("imported")
+	dup := q.Get("dup")
+	skipped := q.Get("skipped")
+	unmatched := q.Get("unmatched")
+	msg := "Imported " + imported + " postings"
+	if dup != "" && dup != "0" {
+		msg += ", skipped " + dup + " duplicates"
+	}
+	if skipped != "" && skipped != "0" {
+		msg += ", ignored " + skipped + " unparseable rows"
+	}
+	if unmatched != "" && unmatched != "0" {
+		msg += ". " + unmatched + " assigned to you (no rule matched)"
+	}
+	return msg + "."
 }
 
 // Create handles creating a new loan. A self participant is created

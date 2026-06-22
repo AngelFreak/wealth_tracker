@@ -215,22 +215,42 @@ func (r *LoanRepository) DeleteParticipant(id int64) error {
 
 // --- Payments ---
 
-// AddPayment inserts a new payment for a loan and returns its ID.
+// AddPayment inserts a new payment for a loan and returns its ID. The
+// source defaults to manual; imported rows carry an import_hash used for
+// dedup (see AddImportedPayment).
 func (r *LoanRepository) AddPayment(p *models.LoanPayment) (int64, error) {
+	source := p.Source
+	if source == "" {
+		source = models.PaymentSourceManual
+	}
+	var importHash any
+	if p.ImportHash != "" {
+		importHash = p.ImportHash
+	}
 	result, err := r.db.Exec(`
-		INSERT INTO loan_payments (loan_id, participant_id, amount, payment_type, payment_date, description)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`, p.LoanID, p.ParticipantID, p.Amount, p.PaymentType, p.PaymentDate.Format("2006-01-02"), p.Description)
+		INSERT INTO loan_payments (loan_id, participant_id, amount, payment_type, payment_date, description, import_hash, source)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`, p.LoanID, p.ParticipantID, p.Amount, p.PaymentType, p.PaymentDate.Format("2006-01-02"), p.Description, importHash, source)
 	if err != nil {
 		return 0, err
 	}
 	return result.LastInsertId()
 }
 
+// PaymentHashExists reports whether a payment with the given import hash
+// already exists on the loan (used to skip duplicates on re-import).
+func (r *LoanRepository) PaymentHashExists(loanID int64, importHash string) (bool, error) {
+	var n int
+	err := r.db.QueryRow(`
+		SELECT COUNT(*) FROM loan_payments WHERE loan_id = ? AND import_hash = ?
+	`, loanID, importHash).Scan(&n)
+	return n > 0, err
+}
+
 // GetPayments returns all payments of a loan, newest first.
 func (r *LoanRepository) GetPayments(loanID int64) ([]*models.LoanPayment, error) {
 	rows, err := r.db.Query(`
-		SELECT id, loan_id, participant_id, amount, payment_type, payment_date, description, created_at
+		SELECT id, loan_id, participant_id, amount, payment_type, payment_date, description, source, created_at
 		FROM loan_payments
 		WHERE loan_id = ?
 		ORDER BY payment_date DESC, id DESC
@@ -243,13 +263,16 @@ func (r *LoanRepository) GetPayments(loanID int64) ([]*models.LoanPayment, error
 	payments := make([]*models.LoanPayment, 0)
 	for rows.Next() {
 		p := &models.LoanPayment{}
-		var description sql.NullString
+		var description, source sql.NullString
 		var paymentDate string
-		if err := rows.Scan(&p.ID, &p.LoanID, &p.ParticipantID, &p.Amount, &p.PaymentType, &paymentDate, &description, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.LoanID, &p.ParticipantID, &p.Amount, &p.PaymentType, &paymentDate, &description, &source, &p.CreatedAt); err != nil {
 			return nil, err
 		}
 		if description.Valid {
 			p.Description = description.String
+		}
+		if source.Valid {
+			p.Source = source.String
 		}
 		p.PaymentDate = parseDate(paymentDate)
 		payments = append(payments, p)
@@ -261,13 +284,13 @@ func (r *LoanRepository) GetPayments(loanID int64) ([]*models.LoanPayment, error
 // found.
 func (r *LoanRepository) GetPaymentByID(id int64) (*models.LoanPayment, error) {
 	p := &models.LoanPayment{}
-	var description sql.NullString
+	var description, source sql.NullString
 	var paymentDate string
 	err := r.db.QueryRow(`
-		SELECT id, loan_id, participant_id, amount, payment_type, payment_date, description, created_at
+		SELECT id, loan_id, participant_id, amount, payment_type, payment_date, description, source, created_at
 		FROM loan_payments
 		WHERE id = ?
-	`, id).Scan(&p.ID, &p.LoanID, &p.ParticipantID, &p.Amount, &p.PaymentType, &paymentDate, &description, &p.CreatedAt)
+	`, id).Scan(&p.ID, &p.LoanID, &p.ParticipantID, &p.Amount, &p.PaymentType, &paymentDate, &description, &source, &p.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -276,6 +299,9 @@ func (r *LoanRepository) GetPaymentByID(id int64) (*models.LoanPayment, error) {
 	}
 	if description.Valid {
 		p.Description = description.String
+	}
+	if source.Valid {
+		p.Source = source.String
 	}
 	p.PaymentDate = parseDate(paymentDate)
 	return p, nil
@@ -293,6 +319,79 @@ func (r *LoanRepository) DeletePayment(id int64) error {
 	}
 	if rowsAffected == 0 {
 		return errors.New("payment not found")
+	}
+	return nil
+}
+
+// --- Import rules ---
+
+// AddImportRule inserts a payer rule and returns its ID.
+func (r *LoanRepository) AddImportRule(rule *models.LoanImportRule) (int64, error) {
+	result, err := r.db.Exec(`
+		INSERT INTO loan_import_rules (loan_id, match_text, participant_id)
+		VALUES (?, ?, ?)
+	`, rule.LoanID, rule.MatchText, rule.ParticipantID)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
+}
+
+// GetImportRules returns a loan's payer rules, oldest first (first match
+// wins during import).
+func (r *LoanRepository) GetImportRules(loanID int64) ([]*models.LoanImportRule, error) {
+	rows, err := r.db.Query(`
+		SELECT id, loan_id, match_text, participant_id, created_at
+		FROM loan_import_rules
+		WHERE loan_id = ?
+		ORDER BY id ASC
+	`, loanID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	rules := make([]*models.LoanImportRule, 0)
+	for rows.Next() {
+		rule := &models.LoanImportRule{}
+		if err := rows.Scan(&rule.ID, &rule.LoanID, &rule.MatchText, &rule.ParticipantID, &rule.CreatedAt); err != nil {
+			return nil, err
+		}
+		rules = append(rules, rule)
+	}
+	return rules, rows.Err()
+}
+
+// GetImportRuleByID retrieves a single rule. Returns (nil, nil) if not
+// found.
+func (r *LoanRepository) GetImportRuleByID(id int64) (*models.LoanImportRule, error) {
+	rule := &models.LoanImportRule{}
+	err := r.db.QueryRow(`
+		SELECT id, loan_id, match_text, participant_id, created_at
+		FROM loan_import_rules
+		WHERE id = ?
+	`, id).Scan(&rule.ID, &rule.LoanID, &rule.MatchText, &rule.ParticipantID, &rule.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return rule, nil
+}
+
+// DeleteImportRule removes a rule by ID.
+func (r *LoanRepository) DeleteImportRule(id int64) error {
+	result, err := r.db.Exec(`DELETE FROM loan_import_rules WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return errors.New("rule not found")
 	}
 	return nil
 }

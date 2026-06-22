@@ -296,6 +296,9 @@ func (app *App) setupRouter() {
 		r.Post("/loans/{id}/participants/{participantID}/delete", app.loanHandler.DeleteParticipant)
 		r.Post("/loans/{id}/payments", app.loanHandler.RecordPayment)
 		r.Post("/loans/{id}/payments/{paymentID}/delete", app.loanHandler.DeletePayment)
+		r.Post("/loans/{id}/import", app.loanHandler.ImportCSV)
+		r.Post("/loans/{id}/rules", app.loanHandler.AddRule)
+		r.Post("/loans/{id}/rules/{ruleID}/delete", app.loanHandler.DeleteRule)
 
 		// Settings
 		r.Get("/settings", app.settingsHandler.Settings)

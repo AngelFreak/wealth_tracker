@@ -1,5 +1,10 @@
 {{define "content"}}
-<div class="space-y-6" x-data="{ showPayment: false, showParticipant: false, showEdit: false }">
+<div class="space-y-6" x-data="{ showPayment: false, showParticipant: false, showEdit: false, showImport: false, showRules: false }">
+    {{if .ImportSummary}}
+    <div class="rounded-xl bg-blue-500/10 border border-blue-500/20 px-4 py-3 text-sm text-blue-600 dark:text-blue-300">
+        {{.ImportSummary}}
+    </div>
+    {{end}}
     <!-- Breadcrumb + Header -->
     <div>
         <a href="/loans" class="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-3">
@@ -98,10 +103,17 @@
     <div class="card">
         <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-dark-border">
             <h2 class="font-semibold text-gray-900 dark:text-white">Payments</h2>
-            <button @click="showPayment = true" class="btn-primary text-xs">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                Record payment
-            </button>
+            <div class="flex items-center gap-2">
+                <button @click="showRules = true" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-dark-border text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-hover">Payer rules</button>
+                <button @click="showImport = true" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-dark-border text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-hover inline-flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Import CSV
+                </button>
+                <button @click="showPayment = true" class="btn-primary text-xs">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                    Record payment
+                </button>
+            </div>
         </div>
         {{if .Payments}}
         <table class="w-full">
@@ -120,12 +132,17 @@
                     <td class="px-5 py-3 text-sm text-gray-600 dark:text-gray-300">{{.PaymentDate.Format "2 Jan 2006"}}</td>
                     <td class="px-5 py-3 text-sm text-gray-900 dark:text-white">{{index $.ParticipantNames .ParticipantID}}</td>
                     <td class="px-5 py-3">
+                        {{if .IsWithdrawal}}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-red-500/10 text-red-500 border border-red-500/20">Borrowed</span>
+                        {{else}}
                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-gray-100 dark:bg-dark-bg text-gray-600 dark:text-gray-300">
-                            {{if eq .PaymentType "down_payment"}}Down payment{{else if eq .PaymentType "extra"}}Extra{{else}}Regular{{end}}
+                            {{if eq .PaymentType "down_payment"}}Down payment{{else if eq .PaymentType "extra"}}Extra{{else}}Payment{{end}}
                         </span>
+                        {{end}}
+                        {{if eq .Source "import"}}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-blue-500/10 text-blue-500 border border-blue-500/20 ml-1">imported</span>{{end}}
                         {{if .Description}}<span class="text-[11px] text-gray-400 ml-1">{{.Description}}</span>{{end}}
                     </td>
-                    <td class="px-5 py-3 text-right text-sm font-medium text-gray-900 dark:text-white tabular-nums">{{formatNumber .Amount $.User.NumberFormat}} {{$.Loan.Currency}}</td>
+                    <td class="px-5 py-3 text-right text-sm font-medium tabular-nums {{if .IsWithdrawal}}text-red-500{{else}}text-gray-900 dark:text-white{{end}}">{{formatNumber .Amount $.User.NumberFormat}} {{$.Loan.Currency}}</td>
                     <td class="px-5 py-3 text-right">
                         <form action="/loans/{{$.Loan.ID}}/payments/{{.ID}}/delete" method="POST" onsubmit="return confirm('Delete this payment?')">
                             <button type="submit" class="text-gray-300 hover:text-red-500" title="Delete">
@@ -264,6 +281,77 @@
                     <div class="flex items-center justify-end gap-3 pt-2">
                         <button type="button" @click="showEdit = false" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Cancel</button>
                         <button type="submit" class="btn-primary text-sm">Save changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import CSV Modal -->
+    <div x-show="showImport" x-cloak class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+        <div class="flex items-center justify-center min-h-screen px-4 py-8">
+            <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" @click="showImport = false"></div>
+            <div class="relative bg-white dark:bg-dark-surface rounded-2xl shadow-xl w-full max-w-md p-6">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Import bank CSV</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-5">Upload a bank statement export. Each posting becomes a payment (money in) or a withdrawal (money out). Re-importing the same file is safe — duplicates are skipped. Who paid is decided by your payer rules; unmatched rows are assigned to you.</p>
+                <form action="/loans/{{.Loan.ID}}/import" method="POST" enctype="multipart/form-data" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">CSV file</label>
+                        <input type="file" name="file" accept=".csv,text/csv" required class="block w-full text-sm text-gray-600 dark:text-gray-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-brand-600 file:text-white hover:file:bg-brand-700">
+                    </div>
+                    <div class="flex items-center justify-between pt-2">
+                        <button type="button" @click="showImport = false; showRules = true" class="text-xs text-amber-500 hover:text-amber-400">Set up payer rules first</button>
+                        <div class="flex items-center gap-3">
+                            <button type="button" @click="showImport = false" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Cancel</button>
+                            <button type="submit" class="btn-primary text-sm">Import</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payer Rules Modal -->
+    <div x-show="showRules" x-cloak class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+        <div class="flex items-center justify-center min-h-screen px-4 py-8">
+            <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" @click="showRules = false"></div>
+            <div class="relative bg-white dark:bg-dark-surface rounded-2xl shadow-xl w-full max-w-md p-6">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Payer rules</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">When an imported posting's text contains the phrase, it's attributed to that person. For example <span class="font-medium">Fra Teis → Teis</span>.</p>
+
+                {{if .Rules}}
+                <div class="space-y-2 mb-4">
+                    {{range .Rules}}
+                    <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-gray-50 dark:bg-dark-bg">
+                        <div class="text-sm text-gray-700 dark:text-gray-300 min-w-0">
+                            <span class="text-gray-400">contains</span> “{{.MatchText}}” <span class="text-gray-400">→</span> {{index $.ParticipantNames .ParticipantID}}
+                        </div>
+                        <form action="/loans/{{$.Loan.ID}}/rules/{{.ID}}/delete" method="POST">
+                            <button type="submit" class="text-gray-300 hover:text-red-500" title="Delete rule">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </form>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <p class="text-xs text-gray-400 mb-4">No rules yet. Add one below.</p>
+                {{end}}
+
+                <form action="/loans/{{.Loan.ID}}/rules" method="POST" class="space-y-3 border-t border-gray-100 dark:border-dark-border pt-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">If text contains</label>
+                        <input type="text" name="match_text" required class="input" placeholder="e.g. Fra Teis">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Attribute to</label>
+                        <select name="participant_id" required class="select">
+                            {{range .Participants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+                        </select>
+                    </div>
+                    <div class="flex items-center justify-end gap-3 pt-1">
+                        <button type="button" @click="showRules = false" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Close</button>
+                        <button type="submit" class="btn-primary text-sm">Add rule</button>
                     </div>
                 </form>
             </div>
