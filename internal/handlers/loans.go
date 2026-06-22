@@ -141,6 +141,11 @@ func (h *LoanHandler) Detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Keep the managed accounts in step with the current math on view, so
+	// they self-heal after a code change to the calculation (sync
+	// otherwise only runs on a mutation).
+	h.sync(loan.ID)
+
 	summary, err := h.loanService.Summarize(loan.ID)
 	if err != nil {
 		log.Printf("Error summarizing loan %d: %v", loan.ID, err)
