@@ -344,6 +344,13 @@ func (s *LoanSummary) SelfNetWorth() float64 {
 	return s.SelfAsset - s.SelfLoanShare + s.SelfReceivable
 }
 
+// IsStatementBacked reports whether the loan's balance is driven entirely
+// by its imported statement rows rather than a fixed starting principal.
+// Signalled by a zero principal: the disbursement is itself a row, so the
+// outstanding balance is the running total of all rows. Such loans show
+// "Current balance owed" instead of a paid-of-principal progress bar.
+func (l *Loan) IsStatementBacked() bool { return l.Principal == 0 }
+
 // ProgressPct returns how much of the loan has been paid down, 0–100.
 func (s *LoanSummary) ProgressPct() float64 {
 	if s.Loan == nil || s.Loan.Principal <= 0 {
