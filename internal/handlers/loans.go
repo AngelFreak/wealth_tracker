@@ -97,8 +97,19 @@ func (h *LoanHandler) List(w http.ResponseWriter, r *http.Request) {
 		summaries = append(summaries, s)
 	}
 
-	// Totals across active loans for the header cards.
-	assets, liabilities, receivable, _ := h.loanService.LoanNetWorth(user.ID)
+	// Totals for the header cards. These summarise ALL of the user's
+	// loans (including categorised ones that surface as accounts), since
+	// this is a loans overview — not the dashboard net-worth fold, which
+	// deliberately excludes categorised loans to avoid double-counting.
+	var assets, liabilities, receivable float64
+	for _, s := range summaries {
+		if s.Loan != nil && !s.Loan.IsActive {
+			continue
+		}
+		assets += s.SelfAsset
+		liabilities += s.SelfLoanShare
+		receivable += s.SelfReceivable
+	}
 
 	categories, _ := h.categoryRepo.GetByUserID(user.ID)
 
