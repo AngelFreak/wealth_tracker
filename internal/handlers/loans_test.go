@@ -32,8 +32,8 @@ func setupLoanHandlerTest(t *testing.T) (*LoanHandler, *repository.LoanRepositor
 	t.Cleanup(func() { db.Close() })
 
 	loanRepo := repository.NewLoanRepository(db)
-	loanService := services.NewLoanService(loanRepo)
-	handler := NewLoanHandler(nil, loanRepo, loanService)
+	loanService := services.NewLoanService(loanRepo, repository.NewAccountRepository(db), repository.NewTransactionRepository(db))
+	handler := NewLoanHandler(nil, loanRepo, loanService, repository.NewCategoryRepository(db))
 
 	owner := insertHandlerUser(t, db, "owner@example.com")
 	other := insertHandlerUser(t, db, "other@example.com")

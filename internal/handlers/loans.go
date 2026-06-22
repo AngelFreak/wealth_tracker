@@ -20,9 +20,10 @@ import (
 // co-owns (split). The settlement and net-worth math lives in the
 // LoanService; this handler is the HTTP/form layer around it.
 type LoanHandler struct {
-	templates   map[string]*template.Template
-	loanRepo    *repository.LoanRepository
-	loanService *services.LoanService
+	templates    map[string]*template.Template
+	loanRepo     *repository.LoanRepository
+	loanService  *services.LoanService
+	categoryRepo *repository.CategoryRepository
 }
 
 // NewLoanHandler creates a new LoanHandler.
@@ -30,11 +31,42 @@ func NewLoanHandler(
 	templates map[string]*template.Template,
 	loanRepo *repository.LoanRepository,
 	loanService *services.LoanService,
+	categoryRepo *repository.CategoryRepository,
 ) *LoanHandler {
 	return &LoanHandler{
-		templates:   templates,
-		loanRepo:    loanRepo,
-		loanService: loanService,
+		templates:    templates,
+		loanRepo:     loanRepo,
+		loanService:  loanService,
+		categoryRepo: categoryRepo,
+	}
+}
+
+// parseCategoryID reads a category_id form value and returns it only if
+// the category exists and belongs to the user; otherwise nil.
+func (h *LoanHandler) parseCategoryID(value string, userID int64) *int64 {
+	value = strings.TrimSpace(value)
+	if value == "" || value == "0" {
+		return nil
+	}
+	id, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return nil
+	}
+	if h.categoryRepo == nil {
+		return &id
+	}
+	cat, _ := h.categoryRepo.GetByID(id)
+	if cat == nil || cat.UserID != userID {
+		return nil
+	}
+	return &id
+}
+
+// sync keeps a loan's managed accounts in step after a change; errors are
+// logged but not fatal to the user's action.
+func (h *LoanHandler) sync(loanID int64) {
+	if err := h.loanService.SyncManagedAccounts(loanID); err != nil {
+		log.Printf("Error syncing managed accounts for loan %d: %v", loanID, err)
 	}
 }
 
@@ -68,11 +100,14 @@ func (h *LoanHandler) List(w http.ResponseWriter, r *http.Request) {
 	// Totals across active loans for the header cards.
 	assets, liabilities, receivable, _ := h.loanService.LoanNetWorth(user.ID)
 
+	categories, _ := h.categoryRepo.GetByUserID(user.ID)
+
 	h.render(w, "loans.html", map[string]any{
 		"Title":           "Loans",
 		"User":            user,
 		"ActiveNav":       "loans",
 		"Summaries":       summaries,
+		"Categories":      categories,
 		"TotalAssets":     assets,
 		"TotalLiability":  liabilities,
 		"NetReceivable":   receivable,
@@ -122,6 +157,8 @@ func (h *LoanHandler) Detail(w http.ResponseWriter, r *http.Request) {
 		participantNames[p.ID] = p.Name
 	}
 
+	categories, _ := h.categoryRepo.GetByUserID(user.ID)
+
 	h.render(w, "loan-detail.html", map[string]any{
 		"Title":            loan.Name,
 		"User":             user,
@@ -131,6 +168,7 @@ func (h *LoanHandler) Detail(w http.ResponseWriter, r *http.Request) {
 		"Participants":     participants,
 		"Payments":         payments,
 		"ParticipantNames": participantNames,
+		"Categories":       categories,
 		"DemoMode":         IsDemoMode(),
 	})
 }
@@ -187,6 +225,7 @@ func (h *LoanHandler) Create(w http.ResponseWriter, r *http.Request) {
 		StartDate:     startDate,
 		IsActive:      true,
 		Notes:         notes,
+		CategoryID:    h.parseCategoryID(r.FormValue("category_id"), user.ID),
 	}
 
 	loanID, err := h.loanRepo.Create(loan)
@@ -216,6 +255,7 @@ func (h *LoanHandler) Create(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error creating self participant for loan %d: %v", loanID, err)
 	}
 
+	h.sync(loanID)
 	http.Redirect(w, r, "/loans/"+strconv.FormatInt(loanID, 10), http.StatusSeeOther)
 }
 
@@ -264,6 +304,7 @@ func (h *LoanHandler) Update(w http.ResponseWriter, r *http.Request) {
 			loan.StartDate = &t
 		}
 	}
+	loan.CategoryID = h.parseCategoryID(r.FormValue("category_id"), user.ID)
 
 	if err := h.loanRepo.Update(loan); err != nil {
 		log.Printf("Error updating loan: %v", err)
@@ -271,6 +312,7 @@ func (h *LoanHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.sync(loan.ID)
 	http.Redirect(w, r, "/loans/"+strconv.FormatInt(loan.ID, 10), http.StatusSeeOther)
 }
 
@@ -332,6 +374,7 @@ func (h *LoanHandler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.sync(loan.ID)
 	http.Redirect(w, r, "/loans/"+strconv.FormatInt(loan.ID, 10), http.StatusSeeOther)
 }
 
@@ -371,6 +414,7 @@ func (h *LoanHandler) DeleteParticipant(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	h.sync(loan.ID)
 	http.Redirect(w, r, "/loans/"+strconv.FormatInt(loan.ID, 10), http.StatusSeeOther)
 }
 
@@ -435,6 +479,7 @@ func (h *LoanHandler) RecordPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.sync(loan.ID)
 	http.Redirect(w, r, "/loans/"+strconv.FormatInt(loan.ID, 10), http.StatusSeeOther)
 }
 
@@ -469,6 +514,7 @@ func (h *LoanHandler) DeletePayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.sync(loan.ID)
 	http.Redirect(w, r, "/loans/"+strconv.FormatInt(loan.ID, 10), http.StatusSeeOther)
 }
 

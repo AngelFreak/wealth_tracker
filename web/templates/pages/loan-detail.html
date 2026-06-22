@@ -228,11 +228,11 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Loan amount</label>
-                            <input type="number" step="0.01" name="principal" value="{{.Loan.Principal}}" class="input">
+                            <input type="number" step="0.01" name="principal" value="{{numInput .Loan.Principal}}" class="input">
                         </div>
                         <div>
                             <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Property value</label>
-                            <input type="number" step="0.01" name="property_value" value="{{.Loan.PropertyValue}}" class="input">
+                            <input type="number" step="0.01" name="property_value" value="{{numInput .Loan.PropertyValue}}" class="input">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
@@ -251,6 +251,14 @@
                                 <option value="0" {{if not .Loan.IsActive}}selected{{end}}>Closed</option>
                             </select>
                         </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Category</label>
+                        <select name="category_id" class="select">
+                            <option value="">No category (don't show in Accounts)</option>
+                            {{range .Categories}}<option value="{{.ID}}" {{if eq .ID (derefI64 $.Loan.CategoryID)}}selected{{end}}>{{.Name}}</option>{{end}}
+                        </select>
+                        <p class="text-[11px] text-gray-400 mt-1">Shows this loan as a property asset + loan liability under the chosen category in Accounts.</p>
                     </div>
                     <input type="hidden" name="currency" value="{{.Loan.Currency}}">
                     <div class="flex items-center justify-end gap-3 pt-2">
