@@ -129,9 +129,9 @@ func TestLoanHandler_RecordPayment_HappyPath(t *testing.T) {
 	form := url.Values{
 		"participant_id": {strconv.FormatInt(selfID, 10)},
 		"amount":         {"250000"},
-		"payment_type":   {models.PaymentTypeDownPayment},
+		"payment_type":   {models.PaymentTypeRegular},
 		"payment_date":   {"2024-02-01"},
-		"description":    {"down payment"},
+		"description":    {"repayment"},
 	}
 	req := authedRequest(owner, "/loans/"+strconv.FormatInt(loanID, 10)+"/payments", form,
 		map[string]string{"id": strconv.FormatInt(loanID, 10)})

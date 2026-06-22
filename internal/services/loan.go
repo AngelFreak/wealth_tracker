@@ -100,20 +100,27 @@ func (s *LoanService) Summarize(loanID int64) (*models.LoanSummary, error) {
 // validated, but is robust to ownership not summing to exactly 100 (it
 // uses whatever percentages are present).
 func BuildSummary(loan *models.Loan, participants []*models.LoanParticipant, payments []*models.LoanPayment) *models.LoanSummary {
-	// netMovement is the signed sum of every row. For a statement-backed
-	// loan (principal 0) the outstanding balance is driven entirely by
-	// this: a disbursement is negative, repayments positive, so the
-	// running total is negative while in debt.
+	// netMovement is the signed sum of every row that moves the LOAN
+	// balance. For a statement-backed loan (principal 0) the outstanding
+	// balance is driven entirely by this: a disbursement is negative,
+	// repayments positive, so the running total is negative while in debt.
 	//
-	// totalContributed is the sum of POSITIVE amounts only — the money
-	// people have actually put toward the loan. The settlement split
-	// ("who owes whom") is based on this, not on netMovement, so the
-	// disbursement and fees don't scramble each person's fair share.
+	// Down payments are EXCLUDED from netMovement: they are equity put
+	// into the property, not repayments of the loan, and are already
+	// captured by (property value − remaining loan). Counting them in the
+	// balance would double-count that equity.
+	//
+	// totalContributed is the sum of POSITIVE amounts (repayments AND down
+	// payments) — the money each person has actually put in. The
+	// settlement split ("who owes whom") is based on this, so a larger
+	// down payment by one person means the other owes them.
 	netMovement := 0.0
 	totalContributed := 0.0
 	contributed := make(map[int64]float64, len(participants))
 	for _, pay := range payments {
-		netMovement += pay.Amount
+		if pay.PaymentType != models.PaymentTypeDownPayment {
+			netMovement += pay.Amount
+		}
 		if pay.Amount <= 0 {
 			continue
 		}

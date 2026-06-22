@@ -199,6 +199,40 @@ func TestBuildSummary_StatementBackedLoan(t *testing.T) {
 	}
 }
 
+// TestBuildSummary_DownPaymentIsEquityNotBalance: a down payment is the
+// user's equity into the property, not a repayment of the loan, so it
+// counts toward the split but NOT toward the loan balance.
+func TestBuildSummary_DownPaymentIsEquityNotBalance(t *testing.T) {
+	loan := &models.Loan{
+		Name: "Apartment", LoanType: models.LoanTypeSplit,
+		Principal: 0, PropertyValue: 1195000, Currency: "DKK",
+	}
+	teis := participant(1, "Teis", 50, true)
+	signe := participant(2, "Signe", 50, false)
+
+	payments := []*models.LoanPayment{
+		// The statement: disbursement + repayments netting to -100,000.
+		{ParticipantID: 1, Amount: -150000, PaymentType: models.PaymentTypeRegular},
+		{ParticipantID: 1, Amount: 50000, PaymentType: models.PaymentTypeRegular},
+		// A down payment of 665,209 by Teis — equity, must NOT cut the balance.
+		{ParticipantID: 1, Amount: 665209, PaymentType: models.PaymentTypeDownPayment},
+	}
+
+	s := BuildSummary(loan, []*models.LoanParticipant{teis, signe}, payments)
+
+	// Balance excludes the down payment: net of the two regular rows is
+	// -100,000 → owed 100,000. The 665,209 must not reduce it.
+	if s.Remaining != 100000 {
+		t.Errorf("Remaining = %v, want 100000 (down payment must not cut the balance)", s.Remaining)
+	}
+	// The down payment DOES count toward contributions/split: Teis put in
+	// 50,000 + 665,209 = 715,209; fair share = 357,604.50 → owed by Signe.
+	psT := findParticipant(t, s, "Teis")
+	if psT.Contributed != 715209 {
+		t.Errorf("Teis contributed = %v, want 715209 (incl. down payment)", psT.Contributed)
+	}
+}
+
 // TestBuildSummary_SharedPayment: a payment marked shared is credited to
 // each participant by ownership %, so it pays down the balance without
 // shifting the who-owes-whom split.
