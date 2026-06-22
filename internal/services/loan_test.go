@@ -214,7 +214,7 @@ func TestValidateOwnership(t *testing.T) {
 func TestLoanNetWorth_AggregatesAcrossLoans(t *testing.T) {
 	db := setupServiceLoanDB(t)
 	loanRepo := repository.NewLoanRepository(db)
-	svc := NewLoanService(loanRepo)
+	svc := NewLoanService(loanRepo, repository.NewAccountRepository(db), repository.NewTransactionRepository(db))
 	userID := insertServiceUser(t, db)
 
 	// Loan 1: the apartment example -> self net worth 250000

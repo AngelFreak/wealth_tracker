@@ -174,6 +174,16 @@
                     </div>
                 </div>
 
+                <!-- Category: surfaces the loan in Accounts under this category -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Category</label>
+                    <select name="category_id" class="select">
+                        <option value="">No category (don't show in Accounts)</option>
+                        {{range .Categories}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+                    </select>
+                    <p class="text-[11px] text-gray-400 mt-1">Pick a category (e.g. Ejendom) to show this as a property asset + loan liability in your Accounts.</p>
+                </div>
+
                 <!-- Your ownership (for split loans) -->
                 <div x-show="loanType === 'split'" class="grid grid-cols-2 gap-3 p-3 rounded-xl bg-violet-500/5 border border-violet-500/10">
                     <div>

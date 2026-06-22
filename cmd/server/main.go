@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -123,7 +124,7 @@ func main() {
 	portfolioService := services.NewPortfolioService(accountRepo, holdingRepo, categoryRepo, transactionRepo, allocationTargetRepo)
 
 	// Create loan service (settlement + net-worth math)
-	loanService := services.NewLoanService(loanRepo)
+	loanService := services.NewLoanService(loanRepo, accountRepo, transactionRepo)
 
 	// Create session manager
 	sessionManager := auth.NewSessionManager(db)
@@ -144,7 +145,7 @@ func main() {
 	exportHandler := handlers.NewExportHandler(accountRepo, transactionRepo, categoryRepo, goalRepo)
 	brokerHandler := handlers.NewBrokerHandler(templates, brokerConnRepo, mappingRepo, holdingRepo, syncHistoryRepo, accountRepo, syncService)
 	portfolioHandler := handlers.NewPortfolioHandler(templates, portfolioService, allocationTargetRepo, categoryRepo)
-	loanHandler := handlers.NewLoanHandler(templates, loanRepo, loanService)
+	loanHandler := handlers.NewLoanHandler(templates, loanRepo, loanService, categoryRepo)
 
 	// Create application
 	app := &App{
@@ -420,6 +421,23 @@ func parseTemplates() (TemplateCache, error) {
 		// upper converts a string to uppercase
 		"upper": func(s string) string {
 			return strings.ToUpper(s)
+		},
+		// numInput formats a float as a plain decimal string for use in
+		// <input type="number"> value attributes. Go's default float
+		// rendering uses scientific notation for large values (e.g.
+		// 1.195e+06), which number inputs can't parse; this always emits
+		// plain digits with trailing zeros trimmed (e.g. "1195000").
+		"numInput": func(n float64) string {
+			return strconv.FormatFloat(n, 'f', -1, 64)
+		},
+		// derefI64 dereferences a *int64 for template comparisons,
+		// returning 0 when nil (templates can't compare a pointer to a
+		// value with eq).
+		"derefI64": func(p *int64) int64 {
+			if p == nil {
+				return 0
+			}
+			return *p
 		},
 	}
 

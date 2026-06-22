@@ -112,6 +112,11 @@ func (db *DB) RunMigrations() error {
 		migrationAddSaxoAppKey,
 		migrationAddSaxoAppSecret,
 		migrationAddSaxoRedirectURI,
+		// Loan -> account linking (property asset + loan liability under a category)
+		migrationAddLoanCategory,
+		migrationAddLoanAssetAccount,
+		migrationAddLoanLiabilityAccount,
+		migrationAddAccountManagedByLoan,
 	}
 	for _, migration := range alterMigrations {
 		// Ignore "duplicate column" errors for idempotency

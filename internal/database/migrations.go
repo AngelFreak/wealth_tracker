@@ -370,3 +370,29 @@ CREATE INDEX IF NOT EXISTS idx_loan_participants_loan ON loan_participants(loan_
 CREATE INDEX IF NOT EXISTS idx_loan_payments_loan ON loan_payments(loan_id);
 CREATE INDEX IF NOT EXISTS idx_loan_payments_participant ON loan_payments(participant_id);
 `
+
+// migrationAddLoanCategory lets a loan surface under a category in the
+// Accounts view (e.g. a property loan under "Ejendom").
+const migrationAddLoanCategory = `
+ALTER TABLE loans ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL;
+`
+
+// migrationAddLoanAssetAccount links the loan to an auto-managed asset
+// account holding the user's share of the property value (+ what
+// co-owners owe them). NULL until the loan is given a category.
+const migrationAddLoanAssetAccount = `
+ALTER TABLE loans ADD COLUMN asset_account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL;
+`
+
+// migrationAddLoanLiabilityAccount links the loan to an auto-managed
+// liability account holding the user's share of the remaining loan.
+const migrationAddLoanLiabilityAccount = `
+ALTER TABLE loans ADD COLUMN liability_account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL;
+`
+
+// migrationAddAccountManagedByLoan marks an account as auto-managed by a
+// loan. Managed accounts are read-only in the Accounts UI (their balance
+// is derived from the loan) and are excluded from manual editing.
+const migrationAddAccountManagedByLoan = `
+ALTER TABLE accounts ADD COLUMN managed_by_loan_id INTEGER REFERENCES loans(id) ON DELETE CASCADE;
+`

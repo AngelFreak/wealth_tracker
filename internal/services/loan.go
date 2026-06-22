@@ -13,13 +13,29 @@ import (
 // "how much does this loan add to the user's net worth" — the handlers,
 // the detail page, and the dashboard all read these numbers from here so
 // they can never disagree.
+//
+// When a loan has a category, the service also keeps two auto-managed
+// accounts in sync with it: a property asset and a loan liability (see
+// loan_accounts.go).
 type LoanService struct {
-	loanRepo *repository.LoanRepository
+	loanRepo        *repository.LoanRepository
+	accountRepo     *repository.AccountRepository
+	transactionRepo *repository.TransactionRepository
 }
 
-// NewLoanService creates a new LoanService.
-func NewLoanService(loanRepo *repository.LoanRepository) *LoanService {
-	return &LoanService{loanRepo: loanRepo}
+// NewLoanService creates a new LoanService. The account and transaction
+// repos are used to maintain the managed accounts for categorised loans;
+// they may be nil in contexts that only need the pure settlement math.
+func NewLoanService(
+	loanRepo *repository.LoanRepository,
+	accountRepo *repository.AccountRepository,
+	transactionRepo *repository.TransactionRepository,
+) *LoanService {
+	return &LoanService{
+		loanRepo:        loanRepo,
+		accountRepo:     accountRepo,
+		transactionRepo: transactionRepo,
+	}
 }
 
 // roundMoney rounds to 2 decimal places to keep float arithmetic tidy in
@@ -154,12 +170,21 @@ func BuildSummary(loan *models.Loan, participants []*models.LoanParticipant, pay
 //	              user, negative = the user owes others)
 //
 // The user's net contribution is assets - liabilities + receivable.
+//
+// Loans that have a category set are SKIPPED here: their equity is
+// surfaced through managed accounts (a property asset + a loan
+// liability) which the dashboard already counts via the account loop.
+// Counting them here too would double-count. Only un-categorised loans
+// contribute through this path.
 func (s *LoanService) LoanNetWorth(userID int64) (assets, liabilities, receivable float64, err error) {
 	loans, err := s.loanRepo.GetActiveByUserID(userID)
 	if err != nil {
 		return 0, 0, 0, err
 	}
 	for _, loan := range loans {
+		if loan.CategoryID != nil {
+			continue // surfaced as managed accounts instead
+		}
 		participants, err := s.loanRepo.GetParticipants(loan.ID)
 		if err != nil {
 			return 0, 0, 0, err

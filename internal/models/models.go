@@ -31,17 +31,24 @@ type Category struct {
 
 // Account represents a financial account (e.g., Nordnet, SaxoInvester).
 type Account struct {
-	ID          int64     `json:"id"`
-	UserID      int64     `json:"user_id"`
-	CategoryID  *int64    `json:"category_id,omitempty"`
-	Name        string    `json:"name"`
-	Currency    string    `json:"currency"`
-	IsLiability bool      `json:"is_liability"`
-	IsActive    bool      `json:"is_active"`
-	Notes       string    `json:"notes,omitempty"`
-	Balance     float64   `json:"balance"` // Calculated from transactions
-	CreatedAt   time.Time `json:"created_at"`
+	ID          int64  `json:"id"`
+	UserID      int64  `json:"user_id"`
+	CategoryID  *int64 `json:"category_id,omitempty"`
+	Name        string `json:"name"`
+	Currency    string `json:"currency"`
+	IsLiability bool   `json:"is_liability"`
+	IsActive    bool   `json:"is_active"`
+	Notes       string `json:"notes,omitempty"`
+	// ManagedByLoanID, when set, means this account's balance is derived
+	// from a loan and must not be edited by hand. The Accounts UI hides
+	// its balance/edit/delete controls and shows a "from loan" badge.
+	ManagedByLoanID *int64    `json:"managed_by_loan_id,omitempty"`
+	Balance         float64   `json:"balance"` // Calculated from transactions
+	CreatedAt       time.Time `json:"created_at"`
 }
+
+// IsManaged reports whether this account is auto-managed by a loan.
+func (a *Account) IsManaged() bool { return a.ManagedByLoanID != nil }
 
 // Transaction represents a financial transaction.
 type Transaction struct {
@@ -239,7 +246,13 @@ type Loan struct {
 	StartDate     *time.Time `json:"start_date,omitempty"`
 	IsActive      bool       `json:"is_active"`
 	Notes         string     `json:"notes,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
+	// CategoryID, when set, surfaces the loan in the Accounts view under
+	// that category as two auto-managed accounts: a property asset
+	// (AssetAccountID) and a loan liability (LiabilityAccountID).
+	CategoryID         *int64    `json:"category_id,omitempty"`
+	AssetAccountID     *int64    `json:"asset_account_id,omitempty"`
+	LiabilityAccountID *int64    `json:"liability_account_id,omitempty"`
+	CreatedAt          time.Time `json:"created_at"`
 }
 
 // LoanParticipant is one party to a loan. For a simple loan there is a

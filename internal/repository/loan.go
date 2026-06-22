@@ -28,10 +28,11 @@ func (r *LoanRepository) Create(loan *models.Loan) (int64, error) {
 		startDate = loan.StartDate.Format("2006-01-02")
 	}
 	result, err := r.db.Exec(`
-		INSERT INTO loans (user_id, name, loan_type, principal, property_value, currency, interest_rate, start_date, is_active, notes)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO loans (user_id, name, loan_type, principal, property_value, currency, interest_rate, start_date, is_active, notes, category_id, asset_account_id, liability_account_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, loan.UserID, loan.Name, loan.LoanType, loan.Principal, loan.PropertyValue,
-		loan.Currency, loan.InterestRate, startDate, loan.IsActive, loan.Notes)
+		loan.Currency, loan.InterestRate, startDate, loan.IsActive, loan.Notes,
+		loan.CategoryID, loan.AssetAccountID, loan.LiabilityAccountID)
 	if err != nil {
 		return 0, err
 	}
@@ -41,7 +42,7 @@ func (r *LoanRepository) Create(loan *models.Loan) (int64, error) {
 // GetByID retrieves a loan by ID. Returns (nil, nil) if not found.
 func (r *LoanRepository) GetByID(id int64) (*models.Loan, error) {
 	row := r.db.QueryRow(`
-		SELECT id, user_id, name, loan_type, principal, property_value, currency, interest_rate, start_date, is_active, notes, created_at
+		SELECT id, user_id, name, loan_type, principal, property_value, currency, interest_rate, start_date, is_active, notes, category_id, asset_account_id, liability_account_id, created_at
 		FROM loans
 		WHERE id = ?
 	`, id)
@@ -51,7 +52,7 @@ func (r *LoanRepository) GetByID(id int64) (*models.Loan, error) {
 // GetByUserID retrieves all loans for a user, newest first.
 func (r *LoanRepository) GetByUserID(userID int64) ([]*models.Loan, error) {
 	rows, err := r.db.Query(`
-		SELECT id, user_id, name, loan_type, principal, property_value, currency, interest_rate, start_date, is_active, notes, created_at
+		SELECT id, user_id, name, loan_type, principal, property_value, currency, interest_rate, start_date, is_active, notes, category_id, asset_account_id, liability_account_id, created_at
 		FROM loans
 		WHERE user_id = ?
 		ORDER BY is_active DESC, created_at DESC
@@ -75,7 +76,7 @@ func (r *LoanRepository) GetByUserID(userID int64) ([]*models.Loan, error) {
 // GetActiveByUserID retrieves only active loans for a user.
 func (r *LoanRepository) GetActiveByUserID(userID int64) ([]*models.Loan, error) {
 	rows, err := r.db.Query(`
-		SELECT id, user_id, name, loan_type, principal, property_value, currency, interest_rate, start_date, is_active, notes, created_at
+		SELECT id, user_id, name, loan_type, principal, property_value, currency, interest_rate, start_date, is_active, notes, category_id, asset_account_id, liability_account_id, created_at
 		FROM loans
 		WHERE user_id = ? AND is_active = 1
 		ORDER BY created_at DESC
@@ -104,10 +105,11 @@ func (r *LoanRepository) Update(loan *models.Loan) error {
 	}
 	result, err := r.db.Exec(`
 		UPDATE loans
-		SET name = ?, loan_type = ?, principal = ?, property_value = ?, currency = ?, interest_rate = ?, start_date = ?, is_active = ?, notes = ?
+		SET name = ?, loan_type = ?, principal = ?, property_value = ?, currency = ?, interest_rate = ?, start_date = ?, is_active = ?, notes = ?, category_id = ?, asset_account_id = ?, liability_account_id = ?
 		WHERE id = ?
 	`, loan.Name, loan.LoanType, loan.Principal, loan.PropertyValue, loan.Currency,
-		loan.InterestRate, startDate, loan.IsActive, loan.Notes, loan.ID)
+		loan.InterestRate, startDate, loan.IsActive, loan.Notes,
+		loan.CategoryID, loan.AssetAccountID, loan.LiabilityAccountID, loan.ID)
 	if err != nil {
 		return err
 	}
@@ -301,12 +303,13 @@ type rowScanner interface {
 	Scan(dest ...any) error
 }
 
-// scanLoan reads one loan row, handling the nullable start_date and
-// notes columns.
+// scanLoan reads one loan row, handling the nullable start_date, notes,
+// category, and managed-account columns.
 func scanLoan(s rowScanner) (*models.Loan, error) {
 	loan := &models.Loan{}
 	var startDate sql.NullString
 	var notes sql.NullString
+	var categoryID, assetAccountID, liabilityAccountID sql.NullInt64
 
 	err := s.Scan(
 		&loan.ID,
@@ -320,6 +323,9 @@ func scanLoan(s rowScanner) (*models.Loan, error) {
 		&startDate,
 		&loan.IsActive,
 		&notes,
+		&categoryID,
+		&assetAccountID,
+		&liabilityAccountID,
 		&loan.CreatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -335,6 +341,15 @@ func scanLoan(s rowScanner) (*models.Loan, error) {
 	}
 	if notes.Valid {
 		loan.Notes = notes.String
+	}
+	if categoryID.Valid {
+		loan.CategoryID = &categoryID.Int64
+	}
+	if assetAccountID.Valid {
+		loan.AssetAccountID = &assetAccountID.Int64
+	}
+	if liabilityAccountID.Valid {
+		loan.LiabilityAccountID = &liabilityAccountID.Int64
 	}
 	return loan, nil
 }
