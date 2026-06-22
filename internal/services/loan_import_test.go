@@ -140,7 +140,7 @@ func TestImportPayments_AttributesDedupsAndWithdraws(t *testing.T) {
 		t.Fatalf("parsed %d rows skipped %d, want 3/0", len(rows), skipped)
 	}
 
-	res, err := svc.ImportPayments(loanID, rows, skipped, signe) // fallback = Signe
+	res, err := svc.ImportPayments(loanID, rows, skipped, signe, 0) // fallback = Signe
 	if err != nil {
 		t.Fatalf("import: %v", err)
 	}
@@ -180,7 +180,7 @@ func TestImportPayments_AttributesDedupsAndWithdraws(t *testing.T) {
 
 	// Re-import the SAME rows: everything is a duplicate, nothing added.
 	rows2, skipped2, _ := ParseBankCSV(strings.NewReader(csv))
-	res2, err := svc.ImportPayments(loanID, rows2, skipped2, signe)
+	res2, err := svc.ImportPayments(loanID, rows2, skipped2, signe, 0)
 	if err != nil {
 		t.Fatalf("re-import: %v", err)
 	}

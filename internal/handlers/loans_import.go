@@ -61,7 +61,15 @@ func (h *LoanHandler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.loanService.ImportPayments(loan.ID, rows, skipped, fallbackID)
+	// Optional: attribute every row to one chosen participant.
+	var forceID int64
+	if v := strings.TrimSpace(r.FormValue("default_participant_id")); v != "" {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
+			forceID = id
+		}
+	}
+
+	result, err := h.loanService.ImportPayments(loan.ID, rows, skipped, fallbackID, forceID)
 	if err != nil {
 		log.Printf("Error importing payments for loan %d: %v", loan.ID, err)
 		http.Redirect(w, r, loanURL(loan.ID, "import=fail"), http.StatusSeeOther)

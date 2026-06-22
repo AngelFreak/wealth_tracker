@@ -148,12 +148,16 @@ func importHash(date time.Time, amount float64, description string) string {
 }
 
 // ImportPayments writes parsed rows to a loan as payments/withdrawals,
-// attributing each to a participant via the loan's rules (falling back
-// to fallbackParticipantID), and skipping rows already imported.
+// attributing each to a participant and skipping rows already imported.
+//
+// If forceParticipantID is non-zero, every row is attributed to that
+// participant (the user chose a single payer at import time). Otherwise
+// each row is matched against the loan's payer rules, falling back to
+// fallbackParticipantID for rows no rule matches.
 //
 // rows are typically the output of ParseBankCSV; skippedParse is the
 // count it reported so the final summary is complete.
-func (s *LoanService) ImportPayments(loanID int64, rows []ImportedRow, skippedParse int, fallbackParticipantID int64) (*ImportResult, error) {
+func (s *LoanService) ImportPayments(loanID int64, rows []ImportedRow, skippedParse int, fallbackParticipantID, forceParticipantID int64) (*ImportResult, error) {
 	rules, err := s.loanRepo.GetImportRules(loanID)
 	if err != nil {
 		return nil, err
@@ -165,6 +169,9 @@ func (s *LoanService) ImportPayments(loanID int64, rows []ImportedRow, skippedPa
 	valid := make(map[int64]bool, len(participants))
 	for _, p := range participants {
 		valid[p.ID] = true
+	}
+	if !valid[forceParticipantID] {
+		forceParticipantID = 0 // ignore an invalid override
 	}
 
 	result := &ImportResult{Skipped: skippedParse}
@@ -179,8 +186,12 @@ func (s *LoanService) ImportPayments(loanID int64, rows []ImportedRow, skippedPa
 			continue
 		}
 
-		participantID, matched := matchParticipant(row.Description, rules)
-		if !matched || !valid[participantID] {
+		var participantID int64
+		if forceParticipantID != 0 {
+			participantID = forceParticipantID
+		} else if matched, ok := matchParticipant(row.Description, rules); ok && valid[matched] {
+			participantID = matched
+		} else {
 			participantID = fallbackParticipantID
 			result.Unmatched++
 		}
