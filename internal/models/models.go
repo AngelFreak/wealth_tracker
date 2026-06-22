@@ -305,3 +305,35 @@ type LoanSummary struct {
 func (s *LoanSummary) SelfNetWorth() float64 {
 	return s.SelfAsset - s.SelfLoanShare + s.SelfReceivable
 }
+
+// ProgressPct returns how much of the loan has been paid down, 0–100.
+func (s *LoanSummary) ProgressPct() float64 {
+	if s.Loan == nil || s.Loan.Principal <= 0 {
+		return 0
+	}
+	pct := (s.TotalPaid / s.Loan.Principal) * 100
+	if pct > 100 {
+		pct = 100
+	}
+	if pct < 0 {
+		pct = 0
+	}
+	return pct
+}
+
+// IsOwed reports whether this participant is owed money by the others
+// (they have overpaid their fair share).
+func (p ParticipantSummary) IsOwed() bool { return p.Balance > 0.009 }
+
+// Owes reports whether this participant owes the others (they have
+// underpaid their fair share).
+func (p ParticipantSummary) Owes() bool { return p.Balance < -0.009 }
+
+// AbsBalance returns the magnitude of the participant's balance, for
+// display alongside an "owes" / "is owed" label.
+func (p ParticipantSummary) AbsBalance() float64 {
+	if p.Balance < 0 {
+		return -p.Balance
+	}
+	return p.Balance
+}
