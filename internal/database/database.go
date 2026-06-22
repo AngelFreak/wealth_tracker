@@ -85,6 +85,11 @@ func (db *DB) RunMigrations() error {
 		migrationAuditLogIndexes,
 		// Performance optimizations
 		migrationPerformanceIndexes,
+		// Loans (owed / lent / split co-ownership)
+		migrationLoans,
+		migrationLoanParticipants,
+		migrationLoanPayments,
+		migrationLoanIndexes,
 	}
 
 	for i, migration := range migrations {
