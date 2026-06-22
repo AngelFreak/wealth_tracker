@@ -568,6 +568,58 @@ func (h *LoanHandler) DeletePayment(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/loans/"+strconv.FormatInt(loan.ID, 10), http.StatusSeeOther)
 }
 
+// UpdatePaymentPayer reassigns a payment to a different participant,
+// correcting who-paid (e.g. after an import attributed everything to the
+// self participant).
+func (h *LoanHandler) UpdatePaymentPayer(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	loan, ok := h.ownedLoan(w, r, user)
+	if !ok {
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	paymentID, err := strconv.ParseInt(chi.URLParam(r, "paymentID"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid payment ID", http.StatusBadRequest)
+		return
+	}
+	payment, err := h.loanRepo.GetPaymentByID(paymentID)
+	if err != nil || payment == nil || payment.LoanID != loan.ID {
+		http.Error(w, "Payment not found", http.StatusNotFound)
+		return
+	}
+
+	participantID, err := strconv.ParseInt(r.FormValue("participant_id"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid participant", http.StatusBadRequest)
+		return
+	}
+	participant, err := h.loanRepo.GetParticipantByID(participantID)
+	if err != nil || participant == nil || participant.LoanID != loan.ID {
+		http.Error(w, "Participant not found", http.StatusNotFound)
+		return
+	}
+
+	if err := h.loanRepo.UpdatePaymentParticipant(paymentID, participantID); err != nil {
+		log.Printf("Error updating payment payer: %v", err)
+		http.Error(w, "Failed to update payer", http.StatusInternalServerError)
+		return
+	}
+
+	h.sync(loan.ID)
+	http.Redirect(w, r, "/loans/"+strconv.FormatInt(loan.ID, 10), http.StatusSeeOther)
+}
+
 // ownedLoan loads the loan named by the {id} URL param and verifies it
 // belongs to the user. It writes the appropriate HTTP error and returns
 // ok=false on any failure.

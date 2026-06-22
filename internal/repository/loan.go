@@ -307,6 +307,25 @@ func (r *LoanRepository) GetPaymentByID(id int64) (*models.LoanPayment, error) {
 	return p, nil
 }
 
+// UpdatePaymentParticipant reassigns a payment to a different
+// participant (used to correct who-paid after an import).
+func (r *LoanRepository) UpdatePaymentParticipant(paymentID, participantID int64) error {
+	result, err := r.db.Exec(`
+		UPDATE loan_payments SET participant_id = ? WHERE id = ?
+	`, participantID, paymentID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return errors.New("payment not found")
+	}
+	return nil
+}
+
 // DeletePayment removes a payment by ID.
 func (r *LoanRepository) DeletePayment(id int64) error {
 	result, err := r.db.Exec(`DELETE FROM loan_payments WHERE id = ?`, id)

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -336,4 +337,45 @@ func TestLoanHandler_ImportCSV_CreatesPaymentsAndDedups(t *testing.T) {
 	if after, _ := loanRepo.GetPayments(loanID); len(after) != 2 {
 		t.Errorf("after re-import have %d payments, want 2 (dedup)", len(after))
 	}
+}
+
+func TestLoanHandler_UpdatePaymentPayer_Reassigns(t *testing.T) {
+	handler, loanRepo, owner, _ := setupLoanHandlerTest(t)
+
+	loanID, _ := loanRepo.Create(&models.Loan{
+		UserID: owner.ID, Name: "Apartment", LoanType: models.LoanTypeSplit,
+		Principal: 0, PropertyValue: 1000000, Currency: "DKK", IsActive: true,
+	})
+	me := mustAddPart(t, loanRepo, loanID, "Me", 50, true)
+	partner := mustAddPart(t, loanRepo, loanID, "Partner", 50, false)
+	payID, _ := loanRepo.AddPayment(&models.LoanPayment{
+		LoanID: loanID, ParticipantID: me, Amount: 4000,
+		PaymentType: models.PaymentTypeRegular, PaymentDate: time.Now(),
+	})
+
+	form := url.Values{"participant_id": {strconv.FormatInt(partner, 10)}}
+	req := authedRequest(owner, "/loans/x/payments/x/payer", form, map[string]string{
+		"id":        strconv.FormatInt(loanID, 10),
+		"paymentID": strconv.FormatInt(payID, 10),
+	})
+	rec := httptest.NewRecorder()
+	handler.UpdatePaymentPayer(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("UpdatePaymentPayer status = %d, want 303", rec.Code)
+	}
+	got, _ := loanRepo.GetPaymentByID(payID)
+	if got.ParticipantID != partner {
+		t.Errorf("payment reassigned to %d, want Partner(%d)", got.ParticipantID, partner)
+	}
+}
+
+// mustAddPart adds a participant and returns its id (test helper).
+func mustAddPart(t *testing.T, r *repository.LoanRepository, loanID int64, name string, pct float64, self bool) int64 {
+	t.Helper()
+	id, err := r.AddParticipant(&models.LoanParticipant{LoanID: loanID, Name: name, OwnershipPct: pct, IsSelf: self})
+	if err != nil {
+		t.Fatalf("add participant: %v", err)
+	}
+	return id
 }
