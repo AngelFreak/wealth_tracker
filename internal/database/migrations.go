@@ -313,3 +313,128 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
 CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at);
 `
+
+// migrationLoans stores loans the user owes, has lent out, or co-owns.
+// The outstanding principal is derived from loan_payments, not stored,
+// so it can never drift from the payment history.
+const migrationLoans = `
+CREATE TABLE IF NOT EXISTS loans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    loan_type TEXT NOT NULL DEFAULT 'owed',
+    principal REAL NOT NULL,
+    property_value REAL DEFAULT 0,
+    currency TEXT DEFAULT 'DKK',
+    interest_rate REAL DEFAULT 0,
+    start_date DATE,
+    is_active INTEGER DEFAULT 1,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+`
+
+// migrationLoanParticipants stores the parties to a loan. A simple loan
+// has a single participant at 100%; a split loan has several. Exactly
+// one participant per loan should have is_self = 1 (the user).
+const migrationLoanParticipants = `
+CREATE TABLE IF NOT EXISTS loan_participants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    ownership_pct REAL NOT NULL DEFAULT 100,
+    is_self INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+`
+
+// migrationLoanPayments stores contributions made by participants toward
+// a loan. Every payment reduces the outstanding principal.
+const migrationLoanPayments = `
+CREATE TABLE IF NOT EXISTS loan_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+    participant_id INTEGER NOT NULL REFERENCES loan_participants(id) ON DELETE CASCADE,
+    amount REAL NOT NULL,
+    payment_type TEXT DEFAULT 'regular',
+    payment_date DATE NOT NULL,
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+`
+
+// migrationLoanIndexes adds indexes for the loan-related tables.
+const migrationLoanIndexes = `
+CREATE INDEX IF NOT EXISTS idx_loans_user ON loans(user_id);
+CREATE INDEX IF NOT EXISTS idx_loan_participants_loan ON loan_participants(loan_id);
+CREATE INDEX IF NOT EXISTS idx_loan_payments_loan ON loan_payments(loan_id);
+CREATE INDEX IF NOT EXISTS idx_loan_payments_participant ON loan_payments(participant_id);
+`
+
+// migrationAddLoanCategory lets a loan surface under a category in the
+// Accounts view (e.g. a property loan under "Ejendom").
+const migrationAddLoanCategory = `
+ALTER TABLE loans ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL;
+`
+
+// migrationAddLoanAssetAccount links the loan to an auto-managed asset
+// account holding the user's share of the property value (+ what
+// co-owners owe them). NULL until the loan is given a category.
+const migrationAddLoanAssetAccount = `
+ALTER TABLE loans ADD COLUMN asset_account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL;
+`
+
+// migrationAddLoanLiabilityAccount links the loan to an auto-managed
+// liability account holding the user's share of the remaining loan.
+const migrationAddLoanLiabilityAccount = `
+ALTER TABLE loans ADD COLUMN liability_account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL;
+`
+
+// migrationAddAccountManagedByLoan marks an account as auto-managed by a
+// loan. Managed accounts are read-only in the Accounts UI (their balance
+// is derived from the loan) and are excluded from manual editing.
+const migrationAddAccountManagedByLoan = `
+ALTER TABLE accounts ADD COLUMN managed_by_loan_id INTEGER REFERENCES loans(id) ON DELETE CASCADE;
+`
+
+// migrationLoanImportRules stores per-loan payer rules: when an imported
+// posting's description contains match_text, the payment is attributed to
+// the named participant. First match (lowest id) wins.
+const migrationLoanImportRules = `
+CREATE TABLE IF NOT EXISTS loan_import_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    loan_id INTEGER NOT NULL REFERENCES loans(id) ON DELETE CASCADE,
+    match_text TEXT NOT NULL,
+    participant_id INTEGER NOT NULL REFERENCES loan_participants(id) ON DELETE CASCADE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_loan_import_rules_loan ON loan_import_rules(loan_id);
+`
+
+// migrationAddPaymentImportHash adds a dedup key to loan_payments. The
+// hash is sha256(date|amount|description); a unique index per loan makes
+// re-importing the same statement a no-op.
+const migrationAddPaymentImportHash = `
+ALTER TABLE loan_payments ADD COLUMN import_hash TEXT;
+`
+
+// migrationAddPaymentSource records whether a payment was entered
+// manually or came from a CSV import.
+const migrationAddPaymentSource = `
+ALTER TABLE loan_payments ADD COLUMN source TEXT DEFAULT 'manual';
+`
+
+// migrationAddPaymentShared marks a payment as shared by all
+// participants. A shared payment is credited to each participant by their
+// ownership percentage (net-neutral to the who-owes-whom split), so its
+// participant_id is ignored.
+const migrationAddPaymentShared = `
+ALTER TABLE loan_payments ADD COLUMN is_shared INTEGER DEFAULT 0;
+`
+
+// migrationLoanPaymentImportHashIndex enforces dedup: at most one payment
+// per (loan, import_hash). NULL hashes (manual entries) are not affected
+// by SQLite's unique-index treatment of NULLs.
+const migrationLoanPaymentImportHashIndex = `
+CREATE UNIQUE INDEX IF NOT EXISTS idx_loan_payments_loan_hash ON loan_payments(loan_id, import_hash);
+`

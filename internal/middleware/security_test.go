@@ -66,9 +66,13 @@ func TestSecurityHeaders_CSP(t *testing.T) {
 		}
 	}
 
-	// Verify unsafe-eval is NOT present (security requirement)
-	if strings.Contains(csp, "unsafe-eval") {
-		t.Error("CSP should not contain 'unsafe-eval'")
+	// The standard Alpine.js v3 build compiles its directive expressions
+	// with the Function constructor, which CSP treats as eval. 'unsafe-eval'
+	// must therefore be present in script-src, otherwise the browser blocks
+	// every Alpine expression and all interactivity (modals, dropdowns,
+	// toggles) silently breaks. See SecurityHeaders for the trade-off.
+	if !strings.Contains(csp, "'unsafe-eval'") {
+		t.Error("CSP must contain 'unsafe-eval' for Alpine.js to function")
 	}
 }
 

@@ -1,0 +1,215 @@
+{{define "content"}}
+<div class="space-y-6">
+    <!-- Page Header -->
+    <div class="flex items-center justify-between gap-4">
+        <div class="min-w-0">
+            <h1 class="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">
+                Loans
+            </h1>
+            <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 hidden sm:block">Track loans you owe, loans to others, and split (co-owned) loans</p>
+        </div>
+        <button onclick="document.getElementById('createLoanModal').classList.remove('hidden')" class="btn-primary text-xs flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+            </svg>
+            <span class="hidden sm:inline">New Loan</span>
+            <span class="sm:hidden">Add</span>
+        </button>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="card p-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Net loan equity</p>
+            <p class="text-xl font-semibold text-gray-900 dark:text-white tabular-nums mt-1">{{formatNumber .NetContribution .User.NumberFormat}} <span class="text-sm text-gray-500">kr.</span></p>
+            <p class="text-[11px] text-gray-400 mt-1">Contribution to your net worth</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Owed to you</p>
+            <p class="text-xl font-semibold text-emerald-500 tabular-nums mt-1">{{if gt .NetReceivable 0.0}}{{formatNumber .NetReceivable .User.NumberFormat}}{{else}}0{{end}} <span class="text-sm text-gray-500">kr.</span></p>
+            <p class="text-[11px] text-gray-400 mt-1">Co-owners' net balance to you</p>
+        </div>
+        <div class="card p-4 col-span-2 lg:col-span-1">
+            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Remaining liability</p>
+            <p class="text-xl font-semibold text-red-500 tabular-nums mt-1">{{formatNumber .TotalLiability .User.NumberFormat}} <span class="text-sm text-gray-500">kr.</span></p>
+            <p class="text-[11px] text-gray-400 mt-1">Your share of remaining loans</p>
+        </div>
+    </div>
+
+    <!-- Loans List -->
+    {{if .Summaries}}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {{range .Summaries}}
+        <a href="/loans/{{.Loan.ID}}" class="card p-5 block hover:border-amber-500/40 transition-colors">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        <p class="font-semibold text-gray-900 dark:text-white truncate">{{.Loan.Name}}</p>
+                        {{if eq .Loan.LoanType "split"}}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-violet-500/10 text-violet-500 border border-violet-500/20">Split</span>
+                        {{else if eq .Loan.LoanType "lent"}}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Lent out</span>
+                        {{else}}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500/10 text-amber-500 border border-amber-500/20">Owed</span>
+                        {{end}}
+                        {{if not .Loan.IsActive}}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-gray-500/10 text-gray-400 border border-gray-500/20">Closed</span>
+                        {{end}}
+                    </div>
+                    {{if gt .Loan.PropertyValue 0.0}}
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Property value {{formatNumber .Loan.PropertyValue $.User.NumberFormat}} {{.Loan.Currency}}</p>
+                    {{end}}
+                </div>
+                <div class="text-right flex-shrink-0">
+                    <p class="text-[11px] text-gray-400 uppercase tracking-wider">{{if .Loan.IsStatementBacked}}Balance owed{{else}}Remaining{{end}}</p>
+                    <p class="font-semibold text-gray-900 dark:text-white tabular-nums">{{formatNumber .Remaining $.User.NumberFormat}} {{.Loan.Currency}}</p>
+                </div>
+            </div>
+
+            {{if .Loan.IsStatementBacked}}
+            <!-- Statement-backed: balance comes from the imported rows -->
+            <div class="mt-4 text-[11px] text-gray-400">
+                Balance tracked from {{formatNumber .TotalPaid $.User.NumberFormat}} {{.Loan.Currency}} in contributions across imported statement rows.
+            </div>
+            {{else}}
+            <!-- Progress bar -->
+            <div class="mt-4">
+                <div class="flex items-center justify-between text-[11px] text-gray-400 mb-1">
+                    <span>Paid {{formatNumber .TotalPaid $.User.NumberFormat}}</span>
+                    <span>of {{formatNumber .Loan.Principal $.User.NumberFormat}}</span>
+                </div>
+                <div class="h-2 rounded-full bg-gray-100 dark:bg-dark-bg overflow-hidden">
+                    <div class="h-full bg-amber-500 rounded-full" style="width: {{printf "%.1f" .ProgressPct}}%"></div>
+                </div>
+            </div>
+            {{end}}
+
+            <!-- Settlement summary (only meaningful for multi-participant loans) -->
+            {{if gt (len .Participants) 1}}
+            <div class="mt-4 pt-3 border-t border-gray-100 dark:border-dark-border space-y-1">
+                {{range .Participants}}
+                {{if .IsOwed}}
+                <p class="text-xs text-gray-600 dark:text-gray-300">
+                    <span class="font-medium text-emerald-500">{{.Participant.Name}}</span> is owed
+                    <span class="tabular-nums font-medium">{{formatNumber .AbsBalance $.User.NumberFormat}} {{$.Loan.Currency}}</span>
+                </p>
+                {{else if .Owes}}
+                <p class="text-xs text-gray-600 dark:text-gray-300">
+                    <span class="font-medium text-red-500">{{.Participant.Name}}</span> owes
+                    <span class="tabular-nums font-medium">{{formatNumber .AbsBalance $.User.NumberFormat}} {{$.Loan.Currency}}</span>
+                </p>
+                {{end}}
+                {{end}}
+            </div>
+            {{end}}
+        </a>
+        {{end}}
+    </div>
+    {{else}}
+    <!-- Empty State -->
+    <div class="card p-12 text-center">
+        <div class="w-12 h-12 mx-auto rounded-xl bg-amber-500/10 flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m3-4h10a2 2 0 012 2v6a2 2 0 01-2 2H10a2 2 0 01-2-2v-6a2 2 0 012-2zm7 5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+            </svg>
+        </div>
+        <p class="text-sm font-medium text-gray-900 dark:text-white">No loans yet</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-4">Add a mortgage, a car loan, money you've lent, or a split (co-owned) loan.</p>
+        <button onclick="document.getElementById('createLoanModal').classList.remove('hidden')" class="btn-primary text-sm">Add your first loan</button>
+    </div>
+    {{end}}
+</div>
+
+<!-- Create Loan Modal -->
+<div id="createLoanModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4 py-8">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" onclick="document.getElementById('createLoanModal').classList.add('hidden')"></div>
+        <div class="relative bg-white dark:bg-dark-surface rounded-2xl shadow-xl w-full max-w-lg p-6">
+            <div class="flex items-center justify-between mb-5">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">New Loan</h2>
+                <button onclick="document.getElementById('createLoanModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 dark:hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <form action="/loans" method="POST" class="space-y-4" x-data="{ loanType: 'owed' }">
+                <!-- Name -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Name</label>
+                    <input type="text" name="name" required class="input" placeholder="e.g., Apartment Nørrebro, Car loan, Loan to Bob">
+                </div>
+
+                <!-- Type -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Type</label>
+                    <select name="loan_type" x-model="loanType" class="select">
+                        <option value="owed">I owe this loan (mortgage, car)</option>
+                        <option value="lent">I lent this money to someone</option>
+                        <option value="split">Split / co-owned loan</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- Principal -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Loan amount</label>
+                        <input type="number" step="0.01" name="principal" required class="input" placeholder="500000">
+                    </div>
+                    <!-- Property value -->
+                    <div x-show="loanType !== 'lent'">
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Property value</label>
+                        <input type="number" step="0.01" name="property_value" class="input" placeholder="500000">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- Currency -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Currency</label>
+                        <select name="currency" class="select">
+                            <option value="DKK">DKK</option>
+                            <option value="EUR">EUR</option>
+                            <option value="USD">USD</option>
+                            <option value="SEK">SEK</option>
+                            <option value="NOK">NOK</option>
+                        </select>
+                    </div>
+                    <!-- Start date -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Start date</label>
+                        <input type="date" name="start_date" class="input">
+                    </div>
+                </div>
+
+                <!-- Category: surfaces the loan in Accounts under this category -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Category</label>
+                    <select name="category_id" class="select">
+                        <option value="">No category (don't show in Accounts)</option>
+                        {{range .Categories}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+                    </select>
+                    <p class="text-[11px] text-gray-400 mt-1">Pick a category (e.g. Ejendom) to show this as a property asset + loan liability in your Accounts.</p>
+                </div>
+
+                <!-- Your ownership (for split loans) -->
+                <div x-show="loanType === 'split'" class="grid grid-cols-2 gap-3 p-3 rounded-xl bg-violet-500/5 border border-violet-500/10">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Your name</label>
+                        <input type="text" name="self_name" class="input" placeholder="Me">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Your ownership %</label>
+                        <input type="number" step="0.01" name="self_ownership_pct" class="input" placeholder="50">
+                    </div>
+                    <p class="col-span-2 text-[11px] text-gray-400">Add co-owners on the next page; ownership must total 100%.</p>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('createLoanModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Cancel</button>
+                    <button type="submit" class="btn-primary text-sm">Create loan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{{end}}
