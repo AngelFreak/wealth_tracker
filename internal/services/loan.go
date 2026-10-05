@@ -65,6 +65,37 @@ func ValidateOwnership(participants []*models.LoanParticipant) error {
 	return nil
 }
 
+// Errors returned by ValidateNewParticipant.
+var (
+	ErrOwnershipPctInvalid = errors.New("ownership percentage must be greater than 0 and at most 100")
+	ErrOwnershipOver100    = errors.New("total ownership would exceed 100%")
+)
+
+// ValidOwnershipPct reports whether pct is a usable ownership share:
+// a finite number greater than 0 and at most 100.
+func ValidOwnershipPct(pct float64) bool {
+	return !math.IsNaN(pct) && !math.IsInf(pct, 0) && pct > 0 && pct <= 100
+}
+
+// ValidateNewParticipant checks that a participant with the given share
+// can be added alongside the existing ones without total ownership
+// going over 100%. A total below 100% is allowed, since co-owners are
+// added one at a time.
+func ValidateNewParticipant(existing []*models.LoanParticipant, pct float64) error {
+	if !ValidOwnershipPct(pct) {
+		return ErrOwnershipPctInvalid
+	}
+	total := pct
+	for _, p := range existing {
+		total += p.OwnershipPct
+	}
+	// Allow a small tolerance for float rounding.
+	if total > 100.01 {
+		return ErrOwnershipOver100
+	}
+	return nil
+}
+
 // Summarize computes the full settlement view of a loan: outstanding
 // principal, each participant's contributed vs. fair share and resulting
 // balance, and the self participant's contribution to net worth.

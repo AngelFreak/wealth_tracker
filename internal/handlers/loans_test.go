@@ -25,6 +25,14 @@ import (
 
 func setupLoanHandlerTest(t *testing.T) (*LoanHandler, *repository.LoanRepository, *models.User, *models.User) {
 	t.Helper()
+	handler, loanRepo, owner, other, _ := setupLoanHandlerTestDB(t)
+	return handler, loanRepo, owner, other
+}
+
+// setupLoanHandlerTestDB is setupLoanHandlerTest that also returns the
+// database, for tests that need to manipulate it directly.
+func setupLoanHandlerTestDB(t *testing.T) (*LoanHandler, *repository.LoanRepository, *models.User, *models.User, *database.DB) {
+	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	db, err := database.New(dbPath)
 	if err != nil {
@@ -41,7 +49,7 @@ func setupLoanHandlerTest(t *testing.T) (*LoanHandler, *repository.LoanRepositor
 
 	owner := insertHandlerUser(t, db, "owner@example.com")
 	other := insertHandlerUser(t, db, "other@example.com")
-	return handler, loanRepo, owner, other
+	return handler, loanRepo, owner, other, db
 }
 
 func insertHandlerUser(t *testing.T, db *database.DB, email string) *models.User {
@@ -378,4 +386,150 @@ func mustAddPart(t *testing.T, r *repository.LoanRepository, loanID int64, name 
 		t.Fatalf("add participant: %v", err)
 	}
 	return id
+}
+
+func TestLoanHandler_ImportCSV_DatabaseErrorRedirectsWithFailAndStoresNothing(t *testing.T) {
+	handler, loanRepo, owner, _, db := setupLoanHandlerTestDB(t)
+
+	loanID, _ := loanRepo.Create(&models.Loan{
+		UserID: owner.ID, Name: "Statement", LoanType: models.LoanTypeOwed, Currency: "DKK", IsActive: true,
+	})
+	mustAddPart(t, loanRepo, loanID, "Me", 100, true)
+
+	if _, err := db.Exec(`CREATE TRIGGER fail_boom BEFORE INSERT ON loan_payments
+		WHEN NEW.description = 'BOOM' BEGIN SELECT RAISE(ABORT, 'boom'); END`); err != nil {
+		t.Fatalf("create trigger: %v", err)
+	}
+
+	csv := ";Fine row;1;;500,00;;;01-04-2026;;;;;;;\n;BOOM;1;;600,00;;;02-04-2026;;;;;;;\n"
+	body, ctype := buildMultipartCSV(t, csv)
+	req := httptest.NewRequest("POST", "/loans/"+strconv.FormatInt(loanID, 10)+"/import", body)
+	req.Header.Set("Content-Type", ctype)
+	req = req.WithContext(context.WithValue(req.Context(), middleware.UserContextKey, owner))
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", strconv.FormatInt(loanID, 10))
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	rec := httptest.NewRecorder()
+	handler.ImportCSV(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", rec.Code)
+	}
+	if loc := rec.Header().Get("Location"); !strings.Contains(loc, "import=fail") {
+		t.Errorf("Location = %q, want it to report import=fail", loc)
+	}
+	if got, _ := loanRepo.GetPayments(loanID); len(got) != 0 {
+		t.Errorf("stored %d payments after a failed import, want 0", len(got))
+	}
+}
+
+func addParticipantRequest(t *testing.T, handler *LoanHandler, owner *models.User, loanID int64, pct string) *httptest.ResponseRecorder {
+	t.Helper()
+	id := strconv.FormatInt(loanID, 10)
+	req := authedRequest(owner, "/loans/"+id+"/participants",
+		url.Values{"name": {"Partner"}, "ownership_pct": {pct}}, map[string]string{"id": id})
+	rec := httptest.NewRecorder()
+	handler.AddParticipant(rec, req)
+	return rec
+}
+
+func TestLoanHandler_AddParticipant_RejectsOwnershipOver100(t *testing.T) {
+	handler, loanRepo, owner, _ := setupLoanHandlerTest(t)
+	loanID, _ := loanRepo.Create(&models.Loan{
+		UserID: owner.ID, Name: "Apartment", LoanType: models.LoanTypeSplit, Currency: "DKK", IsActive: true,
+	})
+	mustAddPart(t, loanRepo, loanID, "Me", 50, true)
+
+	rec := addParticipantRequest(t, handler, owner, loanID, "60")
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303 back to the loan", rec.Code)
+	}
+	if loc := rec.Header().Get("Location"); !strings.Contains(loc, "participant=over100") {
+		t.Errorf("Location = %q, want participant=over100", loc)
+	}
+	if ps, _ := loanRepo.GetParticipants(loanID); len(ps) != 1 {
+		t.Errorf("have %d participants, want 1 (60%% on top of 50%% must be rejected)", len(ps))
+	}
+}
+
+func TestLoanHandler_AddParticipant_AcceptsUpTo100(t *testing.T) {
+	handler, loanRepo, owner, _ := setupLoanHandlerTest(t)
+	loanID, _ := loanRepo.Create(&models.Loan{
+		UserID: owner.ID, Name: "Apartment", LoanType: models.LoanTypeSplit, Currency: "DKK", IsActive: true,
+	})
+	mustAddPart(t, loanRepo, loanID, "Me", 50, true)
+
+	rec := addParticipantRequest(t, handler, owner, loanID, "50")
+
+	if loc := rec.Header().Get("Location"); strings.Contains(loc, "participant=") {
+		t.Errorf("Location = %q, want no participant error", loc)
+	}
+	if ps, _ := loanRepo.GetParticipants(loanID); len(ps) != 2 {
+		t.Errorf("have %d participants, want 2", len(ps))
+	}
+}
+
+func TestLoanHandler_AddParticipant_RejectsInvalidPercentages(t *testing.T) {
+	for _, pct := range []string{"0", "-5", "NaN", "Inf", "abc", ""} {
+		t.Run(pct, func(t *testing.T) {
+			handler, loanRepo, owner, _ := setupLoanHandlerTest(t)
+			loanID, _ := loanRepo.Create(&models.Loan{
+				UserID: owner.ID, Name: "Apartment", LoanType: models.LoanTypeSplit, Currency: "DKK", IsActive: true,
+			})
+			mustAddPart(t, loanRepo, loanID, "Me", 50, true)
+
+			rec := addParticipantRequest(t, handler, owner, loanID, pct)
+
+			if loc := rec.Header().Get("Location"); !strings.Contains(loc, "participant=badpct") {
+				t.Errorf("Location = %q, want participant=badpct", loc)
+			}
+			if ps, _ := loanRepo.GetParticipants(loanID); len(ps) != 1 {
+				t.Errorf("have %d participants, want 1", len(ps))
+			}
+		})
+	}
+}
+
+func TestLoanHandler_Create_RejectsSelfOwnershipOutOfRange(t *testing.T) {
+	for _, pct := range []string{"150", "NaN", "-10"} {
+		t.Run(pct, func(t *testing.T) {
+			handler, loanRepo, owner, _ := setupLoanHandlerTest(t)
+			form := url.Values{
+				"name": {"Apartment"}, "loan_type": {models.LoanTypeSplit},
+				"principal": {"100000"}, "self_ownership_pct": {pct},
+			}
+			rec := httptest.NewRecorder()
+			handler.Create(rec, authedRequest(owner, "/loans", form, nil))
+
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("status = %d, want 400", rec.Code)
+			}
+			if loans, _ := loanRepo.GetByUserID(owner.ID); len(loans) != 0 {
+				t.Errorf("created %d loans, want 0", len(loans))
+			}
+		})
+	}
+}
+
+func TestOwnershipWarning(t *testing.T) {
+	parts := func(pcts ...float64) []*models.LoanParticipant {
+		var ps []*models.LoanParticipant
+		for i, pct := range pcts {
+			ps = append(ps, &models.LoanParticipant{ID: int64(i + 1), OwnershipPct: pct, IsSelf: i == 0})
+		}
+		return ps
+	}
+	split := &models.Loan{LoanType: models.LoanTypeSplit}
+	owed := &models.Loan{LoanType: models.LoanTypeOwed}
+
+	if got := ownershipWarning(split, parts(50)); !strings.Contains(got, "50%") {
+		t.Errorf("split at 50%%: warning = %q, want it to mention 50%%", got)
+	}
+	if got := ownershipWarning(split, parts(50, 50)); got != "" {
+		t.Errorf("split at 100%%: warning = %q, want none", got)
+	}
+	if got := ownershipWarning(owed, parts(100)); got != "" {
+		t.Errorf("owed loan: warning = %q, want none", got)
+	}
 }
