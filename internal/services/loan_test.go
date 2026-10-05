@@ -1,6 +1,7 @@
 package services
 
 import (
+	"math"
 	"path/filepath"
 	"testing"
 	"time"
@@ -425,5 +426,35 @@ func addPay(t *testing.T, r *repository.LoanRepository, loanID, participantID in
 		PaymentType: models.PaymentTypeRegular, PaymentDate: time.Now(),
 	}); err != nil {
 		t.Fatalf("add payment: %v", err)
+	}
+}
+
+func TestValidateNewParticipant(t *testing.T) {
+	tests := []struct {
+		name     string
+		existing []float64
+		pct      float64
+		wantErr  error
+	}{
+		{"fills to 100", []float64{50}, 50, nil},
+		{"stays under 100", []float64{30}, 20, nil},
+		{"thirds rounding", []float64{33.33, 33.33}, 33.34, nil},
+		{"pushes over 100", []float64{50}, 60, ErrOwnershipOver100},
+		{"zero", []float64{50}, 0, ErrOwnershipPctInvalid},
+		{"negative", []float64{50}, -5, ErrOwnershipPctInvalid},
+		{"over 100 alone", nil, 101, ErrOwnershipPctInvalid},
+		{"NaN", []float64{50}, math.NaN(), ErrOwnershipPctInvalid},
+		{"Inf", []float64{50}, math.Inf(1), ErrOwnershipPctInvalid},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ps []*models.LoanParticipant
+			for i, pct := range tt.existing {
+				ps = append(ps, participant(int64(i+1), "p", pct, i == 0))
+			}
+			if err := ValidateNewParticipant(ps, tt.pct); err != tt.wantErr {
+				t.Errorf("ValidateNewParticipant(%v, %v) = %v, want %v", tt.existing, tt.pct, err, tt.wantErr)
+			}
+		})
 	}
 }

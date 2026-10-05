@@ -44,6 +44,10 @@ func roundMoney(v float64) float64 {
 	return math.Round(v*100) / 100
 }
 
+// ownershipTolerance absorbs float rounding when comparing ownership
+// totals against 100% (e.g. 33.33 + 33.33 + 33.34).
+const ownershipTolerance = 0.01
+
 // ValidateOwnership returns an error if the participants' ownership
 // percentages do not sum to ~100. An empty participant list is allowed
 // (a loan with no participants yet contributes nothing).
@@ -58,9 +62,38 @@ func ValidateOwnership(participants []*models.LoanParticipant) error {
 		}
 		total += p.OwnershipPct
 	}
-	// Allow a small tolerance for float rounding.
-	if math.Abs(total-100) > 0.01 {
+	if math.Abs(total-100) > ownershipTolerance {
 		return errors.New("ownership percentages must sum to 100")
+	}
+	return nil
+}
+
+// Errors returned by ValidateNewParticipant.
+var (
+	ErrOwnershipPctInvalid = errors.New("ownership percentage must be greater than 0 and at most 100")
+	ErrOwnershipOver100    = errors.New("total ownership would exceed 100%")
+)
+
+// ValidOwnershipPct reports whether pct is a usable ownership share:
+// a finite number greater than 0 and at most 100.
+func ValidOwnershipPct(pct float64) bool {
+	return !math.IsNaN(pct) && !math.IsInf(pct, 0) && pct > 0 && pct <= 100
+}
+
+// ValidateNewParticipant checks that a participant with the given share
+// can be added alongside the existing ones without total ownership
+// going over 100%. A total below 100% is allowed, since co-owners are
+// added one at a time.
+func ValidateNewParticipant(existing []*models.LoanParticipant, pct float64) error {
+	if !ValidOwnershipPct(pct) {
+		return ErrOwnershipPctInvalid
+	}
+	total := pct
+	for _, p := range existing {
+		total += p.OwnershipPct
+	}
+	if total > 100+ownershipTolerance {
+		return ErrOwnershipOver100
 	}
 	return nil
 }

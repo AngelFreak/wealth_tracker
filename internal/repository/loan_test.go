@@ -301,3 +301,75 @@ func TestLoanRepository_Delete_NonExistent_ReturnsError(t *testing.T) {
 		t.Error("Delete() should return error for non-existent loan")
 	}
 }
+
+func TestLoanRepository_AddImportedPayments_ReportsInsertedPerRow(t *testing.T) {
+	db, userID := setupLoanTestDB(t)
+	repo := NewLoanRepository(db)
+	loanID, _ := repo.Create(&models.Loan{
+		UserID: userID, Name: "Statement", LoanType: models.LoanTypeOwed, Currency: "DKK", IsActive: true,
+	})
+	pid, _ := repo.AddParticipant(&models.LoanParticipant{LoanID: loanID, Name: "Me", OwnershipPct: 100, IsSelf: true})
+
+	pay := func(hash string, amount float64) *models.LoanPayment {
+		return &models.LoanPayment{
+			LoanID: loanID, ParticipantID: pid, Amount: amount, PaymentType: models.PaymentTypeRegular,
+			PaymentDate: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC), ImportHash: hash,
+		}
+	}
+
+	if _, err := repo.AddImportedPayments([]*models.LoanPayment{pay("a", 100)}); err != nil {
+		t.Fatalf("first batch: %v", err)
+	}
+
+	// "a" already exists; "b" is new; the second "b" collides within the batch.
+	inserted, err := repo.AddImportedPayments([]*models.LoanPayment{pay("a", 100), pay("b", 200), pay("b", 200)})
+	if err != nil {
+		t.Fatalf("second batch: %v", err)
+	}
+	want := []bool{false, true, false}
+	for i := range want {
+		if inserted[i] != want[i] {
+			t.Errorf("inserted = %v, want %v", inserted, want)
+			break
+		}
+	}
+	if got, _ := repo.GetPayments(loanID); len(got) != 2 {
+		t.Errorf("stored %d payments, want 2", len(got))
+	}
+	for _, p := range mustPayments(t, repo, loanID) {
+		if p.Source != models.PaymentSourceImport {
+			t.Errorf("payment %q source = %q, want import", p.ImportHash, p.Source)
+		}
+	}
+}
+
+func TestLoanRepository_AddImportedPayments_RejectsMissingHash(t *testing.T) {
+	db, userID := setupLoanTestDB(t)
+	repo := NewLoanRepository(db)
+	loanID, _ := repo.Create(&models.Loan{
+		UserID: userID, Name: "Statement", LoanType: models.LoanTypeOwed, Currency: "DKK", IsActive: true,
+	})
+	pid, _ := repo.AddParticipant(&models.LoanParticipant{LoanID: loanID, Name: "Me", OwnershipPct: 100, IsSelf: true})
+
+	_, err := repo.AddImportedPayments([]*models.LoanPayment{
+		{LoanID: loanID, ParticipantID: pid, Amount: 100, PaymentType: models.PaymentTypeRegular,
+			PaymentDate: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC), ImportHash: "ok"},
+		{LoanID: loanID, ParticipantID: pid, Amount: 100, PaymentType: models.PaymentTypeRegular,
+			PaymentDate: time.Date(2026, 4, 2, 0, 0, 0, 0, time.UTC)},
+	})
+	if err == nil {
+		t.Fatal("expected an error for a payment without an import hash")
+	}
+	if got, _ := repo.GetPayments(loanID); len(got) != 0 {
+		t.Errorf("stored %d payments, want 0 (batch must roll back)", len(got))
+	}
+}
+
+func mustPayments(t *testing.T, repo *LoanRepository, loanID int64) []*models.LoanPayment {
+	t.Helper()
+	ps, err := repo.GetPayments(loanID)
+	if err != nil {
+		t.Fatalf("GetPayments: %v", err)
+	}
+	return ps
+}

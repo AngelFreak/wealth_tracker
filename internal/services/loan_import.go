@@ -49,6 +49,7 @@ func ParseBankCSV(r io.Reader) ([]ImportedRow, int, error) {
 
 	var rows []ImportedRow
 	skipped := 0
+	seen := make(map[string]int) // base hash -> occurrences so far in this file
 
 	for {
 		record, err := reader.Read()
@@ -85,11 +86,22 @@ func ParseBankCSV(r io.Reader) ([]ImportedRow, int, error) {
 			continue
 		}
 
+		// Banks can post two genuinely identical rows (same date, amount
+		// and text). Number repeats within the file so each gets its own
+		// key; the first keeps the plain hash so earlier imports still match.
+		hash := importHash(date, amount, description)
+		if n := seen[hash]; n > 0 {
+			seen[hash] = n + 1
+			hash = occurrenceHash(hash, n)
+		} else {
+			seen[hash] = 1
+		}
+
 		rows = append(rows, ImportedRow{
 			Date:        date,
 			Amount:      amount,
 			Description: description,
-			Hash:        importHash(date, amount, description),
+			Hash:        hash,
 		})
 	}
 
@@ -147,6 +159,13 @@ func importHash(date time.Time, amount float64, description string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// occurrenceHash derives the dedup key for the nth (n >= 1) repeat of an
+// identical posting within one file.
+func occurrenceHash(base string, n int) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s#%d", base, n)))
+	return hex.EncodeToString(sum[:])
+}
+
 // ImportPayments writes parsed rows to a loan as payments/withdrawals,
 // attributing each to a participant and skipping rows already imported.
 //
@@ -176,16 +195,9 @@ func (s *LoanService) ImportPayments(loanID int64, rows []ImportedRow, skippedPa
 
 	result := &ImportResult{Skipped: skippedParse}
 
-	for _, row := range rows {
-		exists, err := s.loanRepo.PaymentHashExists(loanID, row.Hash)
-		if err != nil {
-			return nil, err
-		}
-		if exists {
-			result.Duplicates++
-			continue
-		}
-
+	payments := make([]*models.LoanPayment, len(rows))
+	unmatched := make([]bool, len(rows))
+	for i, row := range rows {
 		var participantID int64
 		if forceParticipantID != 0 {
 			participantID = forceParticipantID
@@ -193,7 +205,7 @@ func (s *LoanService) ImportPayments(loanID int64, rows []ImportedRow, skippedPa
 			participantID = matched
 		} else {
 			participantID = fallbackParticipantID
-			result.Unmatched++
+			unmatched[i] = true
 		}
 
 		paymentType := models.PaymentTypeRegular
@@ -201,7 +213,7 @@ func (s *LoanService) ImportPayments(loanID int64, rows []ImportedRow, skippedPa
 			paymentType = models.PaymentTypeWithdrawal
 		}
 
-		if _, err := s.loanRepo.AddPayment(&models.LoanPayment{
+		payments[i] = &models.LoanPayment{
 			LoanID:        loanID,
 			ParticipantID: participantID,
 			Amount:        row.Amount,
@@ -210,13 +222,24 @@ func (s *LoanService) ImportPayments(loanID int64, rows []ImportedRow, skippedPa
 			Description:   row.Description,
 			ImportHash:    row.Hash,
 			Source:        models.PaymentSourceImport,
-		}); err != nil {
-			// A unique-index violation means it was imported concurrently;
-			// treat as a duplicate rather than failing the whole import.
+		}
+	}
+
+	// All-or-nothing: rows already imported are skipped by the database;
+	// any other failure rolls back the whole file and is returned.
+	inserted, err := s.loanRepo.AddImportedPayments(payments)
+	if err != nil {
+		return nil, fmt.Errorf("import payments for loan %d: %w", loanID, err)
+	}
+	for i, ok := range inserted {
+		if !ok {
 			result.Duplicates++
 			continue
 		}
 		result.Imported++
+		if unmatched[i] {
+			result.Unmatched++
+		}
 	}
 
 	// Keep the managed accounts in step after a bulk import.

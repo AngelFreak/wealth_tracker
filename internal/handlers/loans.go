@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -188,8 +189,36 @@ func (h *LoanHandler) Detail(w http.ResponseWriter, r *http.Request) {
 		"Categories":       categories,
 		"Rules":            rules,
 		"ImportSummary":    importSummaryFromQuery(r),
+		"ParticipantError": participantErrorFromQuery(r),
+		"OwnershipWarning": ownershipWarning(loan, participants),
 		"DemoMode":         IsDemoMode(),
 	})
+}
+
+// participantErrorFromQuery turns the ?participant= flag left by a
+// rejected AddParticipant into a message for the detail page.
+func participantErrorFromQuery(r *http.Request) string {
+	switch r.URL.Query().Get("participant") {
+	case "badpct":
+		return "Ownership must be a number greater than 0 and at most 100."
+	case "over100":
+		return "That co-owner was not added: total ownership would go over 100%."
+	}
+	return ""
+}
+
+// ownershipWarning returns a notice when a split loan's ownership doesn't
+// add up to 100%, since the settlement math assumes it does.
+func ownershipWarning(loan *models.Loan, participants []*models.LoanParticipant) string {
+	if loan.LoanType != models.LoanTypeSplit || services.ValidateOwnership(participants) == nil {
+		return ""
+	}
+	total := 0.0
+	for _, p := range participants {
+		total += p.OwnershipPct
+	}
+	return fmt.Sprintf("Ownership adds up to %s%%, not 100%%. Add or remove co-owners so the shares total 100%%; until then the settlement figures are off.",
+		strconv.FormatFloat(total, 'f', -1, 64))
 }
 
 // importSummaryFromQuery turns the ?imported=&dup=&… params left by an
@@ -262,6 +291,20 @@ func (h *LoanHandler) Create(w http.ResponseWriter, r *http.Request) {
 		currency = "DKK"
 	}
 
+	// The self participant owns 100% of an owed or lent loan. For a split
+	// loan the user may enter their share; blank means 100% until
+	// co-owners are added on the detail page.
+	selfPct := 100.0
+	if loanType == models.LoanTypeSplit {
+		if v := strings.TrimSpace(r.FormValue("self_ownership_pct")); v != "" {
+			selfPct = parseFloat(v)
+			if !services.ValidOwnershipPct(selfPct) {
+				http.Error(w, "Your ownership must be greater than 0 and at most 100", http.StatusBadRequest)
+				return
+			}
+		}
+	}
+
 	var startDate *time.Time
 	if sd := strings.TrimSpace(r.FormValue("start_date")); sd != "" {
 		if t, err := time.Parse("2006-01-02", sd); err == nil {
@@ -290,16 +333,12 @@ func (h *LoanHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create the self participant. For a simple loan they own 100%; for a
-	// split loan the user adjusts this and adds co-owners on the detail
-	// page (ownership is validated to sum to 100 there).
+	// Create the self participant. Co-owners of a split loan are added on
+	// the detail page, which rejects shares that push the total over 100%
+	// and warns while it is below.
 	selfName := strings.TrimSpace(r.FormValue("self_name"))
 	if selfName == "" {
 		selfName = "Me"
-	}
-	selfPct := parseFloat(r.FormValue("self_ownership_pct"))
-	if selfPct <= 0 {
-		selfPct = 100
 	}
 	if _, err := h.loanRepo.AddParticipant(&models.LoanParticipant{
 		LoanID:       loanID,
@@ -417,6 +456,22 @@ func (h *LoanHandler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pct := parseFloat(r.FormValue("ownership_pct"))
+
+	existing, err := h.loanRepo.GetParticipants(loan.ID)
+	if err != nil {
+		log.Printf("Error fetching participants for loan %d: %v", loan.ID, err)
+		http.Error(w, "Failed to add participant", http.StatusInternalServerError)
+		return
+	}
+	switch services.ValidateNewParticipant(existing, pct) {
+	case nil:
+	case services.ErrOwnershipOver100:
+		http.Redirect(w, r, loanURL(loan.ID, "participant=over100"), http.StatusSeeOther)
+		return
+	default:
+		http.Redirect(w, r, loanURL(loan.ID, "participant=badpct"), http.StatusSeeOther)
+		return
+	}
 
 	if _, err := h.loanRepo.AddParticipant(&models.LoanParticipant{
 		LoanID:       loan.ID,

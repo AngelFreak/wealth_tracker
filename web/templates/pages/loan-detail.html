@@ -5,6 +5,16 @@
         {{.ImportSummary}}
     </div>
     {{end}}
+    {{if .ParticipantError}}
+    <div class="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-600 dark:text-red-300">
+        {{.ParticipantError}}
+    </div>
+    {{end}}
+    {{if .OwnershipWarning}}
+    <div class="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+        {{.OwnershipWarning}}
+    </div>
+    {{end}}
     <!-- Breadcrumb + Header -->
     <div>
         <a href="/loans" class="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-3">
@@ -75,7 +85,8 @@
                     </div>
                     <p class="text-[11px] text-gray-400 mt-0.5">Paid {{formatNumber .Contributed $.User.NumberFormat}} · fair share {{formatNumber .FairShare $.User.NumberFormat}}</p>
                 </div>
-                <div class="text-right flex-shrink-0">
+                <div class="flex items-center gap-4 flex-shrink-0">
+                <div class="text-right">
                     {{if .IsOwed}}
                     <p class="text-sm font-semibold text-emerald-500 tabular-nums">+{{formatNumber .AbsBalance $.User.NumberFormat}}</p>
                     <p class="text-[10px] text-gray-400 uppercase tracking-wider">is owed</p>
@@ -87,13 +98,19 @@
                     <p class="text-[10px] text-gray-400 uppercase tracking-wider">settled</p>
                     {{end}}
                 </div>
-                {{if and (not .Participant.IsSelf) (gt (len $.Summary.Participants) 1)}}
-                <form action="/loans/{{$.Loan.ID}}/participants/{{.Participant.ID}}/delete" method="POST" onsubmit="return confirm('Remove {{.Participant.Name}} from this loan?')">
-                    <button type="submit" class="text-gray-300 hover:text-red-500" title="Remove">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                </form>
+                {{if eq $.Loan.LoanType "split"}}
+                <!-- Fixed-width slot so balances line up whether or not the row can be removed -->
+                <div class="w-4 flex-shrink-0">
+                    {{if and (not .Participant.IsSelf) (gt (len $.Summary.Participants) 1)}}
+                    <form action="/loans/{{$.Loan.ID}}/participants/{{.Participant.ID}}/delete" method="POST" onsubmit="return confirm('Remove {{.Participant.Name}} from this loan?')">
+                        <button type="submit" class="text-gray-300 hover:text-red-500" title="Remove">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </form>
+                    {{end}}
+                </div>
                 {{end}}
+                </div>
             </div>
             {{end}}
         </div>
@@ -101,7 +118,7 @@
 
     <!-- Payments -->
     <div class="card">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-dark-border">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-100 dark:border-dark-border">
             <h2 class="font-semibold text-gray-900 dark:text-white">Payments</h2>
             <div class="flex items-center gap-2">
                 <button @click="showRules = true" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-dark-border text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-hover">Payer rules</button>
@@ -116,24 +133,25 @@
             </div>
         </div>
         {{if .Payments}}
+        <div class="overflow-x-auto">
         <table class="w-full">
             <thead>
                 <tr class="border-b border-gray-100 dark:border-dark-border">
-                    <th class="px-5 py-3 text-left text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
-                    <th class="px-5 py-3 text-left text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Who</th>
-                    <th class="px-5 py-3 text-left text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
-                    <th class="px-5 py-3 text-right text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
-                    <th class="px-5 py-3"></th>
+                    <th class="px-3 sm:px-5 py-3 text-left text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                    <th class="px-3 sm:px-5 py-3 text-left text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Who</th>
+                    <th class="px-3 sm:px-5 py-3 text-left text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                    <th class="px-3 sm:px-5 py-3 text-right text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
+                    <th class="px-3 sm:px-5 py-3"></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-dark-border">
                 {{range .Payments}}
                 <tr class="hover:bg-gray-50 dark:hover:bg-dark-hover transition-colors">
-                    <td class="px-5 py-3 text-sm text-gray-600 dark:text-gray-300">{{.PaymentDate.Format "2 Jan 2006"}}</td>
-                    <td class="px-5 py-3 text-sm text-gray-900 dark:text-white">
+                    <td class="px-3 sm:px-5 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{{.PaymentDate.Format "2 Jan 2006"}}</td>
+                    <td class="px-3 sm:px-5 py-3 text-sm text-gray-900 dark:text-white">
                         {{if gt (len $.Participants) 1}}
                         <form action="/loans/{{$.Loan.ID}}/payments/{{.ID}}/payer" method="POST">
-                            <select name="participant_id" onchange="this.form.submit()" class="text-sm rounded-lg px-2 py-1 -ml-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-surface text-gray-900 dark:text-white">
+                            <select name="participant_id" onchange="this.form.submit()" class="max-w-[8rem] sm:max-w-none text-sm rounded-lg px-2 py-1 -ml-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-surface text-gray-900 dark:text-white">
                                 {{$pid := .ParticipantID}}{{$shared := .IsShared}}
                                 <option value="shared" class="bg-white dark:bg-dark-surface text-gray-900 dark:text-white" {{if $shared}}selected{{end}}>Everyone (shared)</option>
                                 {{range $.Participants}}<option value="{{.ID}}" class="bg-white dark:bg-dark-surface text-gray-900 dark:text-white" {{if and (not $shared) (eq .ID $pid)}}selected{{end}}>{{.Name}}</option>{{end}}
@@ -143,7 +161,7 @@
                         {{index $.ParticipantNames .ParticipantID}}
                         {{end}}
                     </td>
-                    <td class="px-5 py-3">
+                    <td class="px-3 sm:px-5 py-3">
                         {{if .IsWithdrawal}}
                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-red-500/10 text-red-500 border border-red-500/20">Borrowed</span>
                         {{else}}
@@ -154,8 +172,8 @@
                         {{if eq .Source "import"}}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-blue-500/10 text-blue-500 border border-blue-500/20 ml-1">imported</span>{{end}}
                         {{if .Description}}<span class="text-[11px] text-gray-400 ml-1">{{.Description}}</span>{{end}}
                     </td>
-                    <td class="px-5 py-3 text-right text-sm font-medium tabular-nums {{if .IsWithdrawal}}text-red-500{{else}}text-gray-900 dark:text-white{{end}}">{{formatNumber .Amount $.User.NumberFormat}} {{$.Loan.Currency}}</td>
-                    <td class="px-5 py-3 text-right">
+                    <td class="px-3 sm:px-5 py-3 text-right text-sm font-medium tabular-nums {{if .IsWithdrawal}}text-red-500{{else}}text-gray-900 dark:text-white{{end}}">{{formatNumber .Amount $.User.NumberFormat}} {{$.Loan.Currency}}</td>
+                    <td class="px-3 sm:px-5 py-3 text-right">
                         <form action="/loans/{{$.Loan.ID}}/payments/{{.ID}}/delete" method="POST" onsubmit="return confirm('Delete this payment?')">
                             <button type="submit" class="text-gray-300 hover:text-red-500" title="Delete">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -166,6 +184,7 @@
                 {{end}}
             </tbody>
         </table>
+        </div>
         {{else}}
         <div class="px-5 py-10 text-center">
             <p class="text-sm text-gray-500 dark:text-gray-400">No payments recorded yet.</p>
