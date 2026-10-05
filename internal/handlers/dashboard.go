@@ -10,6 +10,7 @@ import (
 	"wealth_tracker/internal/middleware"
 	"wealth_tracker/internal/models"
 	"wealth_tracker/internal/repository"
+	"wealth_tracker/internal/services"
 )
 
 // DashboardHandler handles dashboard routes.
@@ -19,6 +20,7 @@ type DashboardHandler struct {
 	transactionRepo *repository.TransactionRepository
 	goalRepo        *repository.GoalRepository
 	categoryRepo    *repository.CategoryRepository
+	loanService     *services.LoanService
 }
 
 // NewDashboardHandler creates a new DashboardHandler.
@@ -28,6 +30,7 @@ func NewDashboardHandler(
 	transactionRepo *repository.TransactionRepository,
 	goalRepo *repository.GoalRepository,
 	categoryRepo *repository.CategoryRepository,
+	loanService *services.LoanService,
 ) *DashboardHandler {
 	return &DashboardHandler{
 		templates:       templates,
@@ -35,6 +38,7 @@ func NewDashboardHandler(
 		transactionRepo: transactionRepo,
 		goalRepo:        goalRepo,
 		categoryRepo:    categoryRepo,
+		loanService:     loanService,
 	}
 }
 
@@ -111,6 +115,23 @@ func (h *DashboardHandler) calculateStats(userID int64) (netWorth, totalAssets, 
 			assetCount++
 		}
 	}
+
+	// Fold in the user's loans. The loan service returns the self
+	// participant's share of property values and money lent out (assets),
+	// their share of remaining principal (liabilities), and the net
+	// inter-person balance (receivable: positive = others owe the user).
+	// We add the receivable to whichever side keeps the cards consistent.
+	loanAssets, loanLiabilities, loanReceivable, err := h.loanService.LoanNetWorth(userID)
+	if err == nil {
+		totalAssets += loanAssets
+		totalLiabilities += loanLiabilities
+		if loanReceivable >= 0 {
+			totalAssets += loanReceivable
+		} else {
+			totalLiabilities += -loanReceivable
+		}
+	}
+
 	netWorth = totalAssets - totalLiabilities
 	return
 }
@@ -146,10 +167,10 @@ func (h *DashboardHandler) calculateMonthlyChange(userID int64, currentNetWorth 
 // GoalWithProgress represents a goal with its progress info.
 type GoalWithProgress struct {
 	*models.Goal
-	Progress   float64
-	IsReached  bool
-	DaysLeft   *int
-	IsOverdue  bool
+	Progress  float64
+	IsReached bool
+	DaysLeft  *int
+	IsOverdue bool
 }
 
 // calculateGoalProgress calculates progress for each goal.

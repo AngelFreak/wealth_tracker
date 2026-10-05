@@ -105,12 +105,12 @@ func (c *Client) GetClientInfo(session *Session) (*ClientInfo, error) {
 		return nil, fmt.Errorf("failed to get client info: status %d, body: %s", resp.StatusCode, string(body))
 	}
 
-	log.Printf("[Saxo] Client info response: %s", string(body))
-
 	var clientInfo ClientInfo
 	if err := json.Unmarshal(body, &clientInfo); err != nil {
 		return nil, fmt.Errorf("decoding client info: %w", err)
 	}
+
+	log.Printf("[Saxo] Client info received (clientKey present=%v)", clientInfo.ClientKey != "")
 
 	// Store ClientKey in session for future use
 	session.ClientKey = clientInfo.ClientKey
@@ -158,12 +158,11 @@ func (c *Client) GetAccounts(session *Session) ([]Account, error) {
 		return nil, fmt.Errorf("failed to get accounts: status %d, body: %s", resp.StatusCode, string(body))
 	}
 
-	log.Printf("[Saxo] Accounts response: %s", string(body))
-
 	var accountsResp AccountsResponse
 	if err := json.Unmarshal(body, &accountsResp); err != nil {
 		return nil, fmt.Errorf("decoding accounts: %w", err)
 	}
+	log.Printf("[Saxo] Accounts received: %d", len(accountsResp.Data))
 
 	return accountsResp.Data, nil
 }

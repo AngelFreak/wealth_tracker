@@ -21,10 +21,10 @@ func NewAccountRepository(db *database.DB) *AccountRepository {
 // Create inserts a new account and returns its ID.
 func (r *AccountRepository) Create(account *models.Account) (int64, error) {
 	result, err := r.db.Exec(`
-		INSERT INTO accounts (user_id, category_id, name, currency, is_liability, is_active, notes)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO accounts (user_id, category_id, name, currency, is_liability, is_active, notes, managed_by_loan_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`, account.UserID, account.CategoryID, account.Name, account.Currency,
-		boolToInt(account.IsLiability), boolToInt(account.IsActive), account.Notes)
+		boolToInt(account.IsLiability), boolToInt(account.IsActive), account.Notes, account.ManagedByLoanID)
 	if err != nil {
 		return 0, err
 	}
@@ -34,7 +34,7 @@ func (r *AccountRepository) Create(account *models.Account) (int64, error) {
 // GetByID retrieves an account by ID.
 func (r *AccountRepository) GetByID(id int64) (*models.Account, error) {
 	row := r.db.QueryRow(`
-		SELECT id, user_id, category_id, name, currency, is_liability, is_active, notes, created_at
+		SELECT id, user_id, category_id, name, currency, is_liability, is_active, notes, managed_by_loan_id, created_at
 		FROM accounts
 		WHERE id = ?
 	`, id)
@@ -43,6 +43,7 @@ func (r *AccountRepository) GetByID(id int64) (*models.Account, error) {
 	var categoryID sql.NullInt64
 	var isLiability, isActive int
 	var notes sql.NullString
+	var managedByLoanID sql.NullInt64
 
 	err := row.Scan(
 		&account.ID,
@@ -53,6 +54,7 @@ func (r *AccountRepository) GetByID(id int64) (*models.Account, error) {
 		&isLiability,
 		&isActive,
 		&notes,
+		&managedByLoanID,
 		&account.CreatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -70,6 +72,9 @@ func (r *AccountRepository) GetByID(id int64) (*models.Account, error) {
 	if notes.Valid {
 		account.Notes = notes.String
 	}
+	if managedByLoanID.Valid {
+		account.ManagedByLoanID = &managedByLoanID.Int64
+	}
 
 	return account, nil
 }
@@ -77,7 +82,7 @@ func (r *AccountRepository) GetByID(id int64) (*models.Account, error) {
 // GetByUserID retrieves all accounts for a user, sorted by name.
 func (r *AccountRepository) GetByUserID(userID int64) ([]*models.Account, error) {
 	return r.queryAccounts(`
-		SELECT id, user_id, category_id, name, currency, is_liability, is_active, notes, created_at
+		SELECT id, user_id, category_id, name, currency, is_liability, is_active, notes, managed_by_loan_id, created_at
 		FROM accounts
 		WHERE user_id = ?
 		ORDER BY name ASC
@@ -87,7 +92,7 @@ func (r *AccountRepository) GetByUserID(userID int64) ([]*models.Account, error)
 // GetByUserIDActiveOnly retrieves only active accounts for a user.
 func (r *AccountRepository) GetByUserIDActiveOnly(userID int64) ([]*models.Account, error) {
 	return r.queryAccounts(`
-		SELECT id, user_id, category_id, name, currency, is_liability, is_active, notes, created_at
+		SELECT id, user_id, category_id, name, currency, is_liability, is_active, notes, managed_by_loan_id, created_at
 		FROM accounts
 		WHERE user_id = ? AND is_active = 1
 		ORDER BY name ASC
@@ -97,7 +102,7 @@ func (r *AccountRepository) GetByUserIDActiveOnly(userID int64) ([]*models.Accou
 // GetByCategoryID retrieves all accounts for a specific category.
 func (r *AccountRepository) GetByCategoryID(categoryID int64) ([]*models.Account, error) {
 	return r.queryAccounts(`
-		SELECT id, user_id, category_id, name, currency, is_liability, is_active, notes, created_at
+		SELECT id, user_id, category_id, name, currency, is_liability, is_active, notes, managed_by_loan_id, created_at
 		FROM accounts
 		WHERE category_id = ?
 		ORDER BY name ASC
@@ -118,6 +123,7 @@ func (r *AccountRepository) queryAccounts(query string, args ...any) ([]*models.
 		var categoryID sql.NullInt64
 		var isLiability, isActive int
 		var notes sql.NullString
+		var managedByLoanID sql.NullInt64
 
 		err := rows.Scan(
 			&account.ID,
@@ -128,6 +134,7 @@ func (r *AccountRepository) queryAccounts(query string, args ...any) ([]*models.
 			&isLiability,
 			&isActive,
 			&notes,
+			&managedByLoanID,
 			&account.CreatedAt,
 		)
 		if err != nil {
@@ -142,6 +149,9 @@ func (r *AccountRepository) queryAccounts(query string, args ...any) ([]*models.
 		if notes.Valid {
 			account.Notes = notes.String
 		}
+		if managedByLoanID.Valid {
+			account.ManagedByLoanID = &managedByLoanID.Int64
+		}
 
 		accounts = append(accounts, account)
 	}
@@ -152,10 +162,10 @@ func (r *AccountRepository) queryAccounts(query string, args ...any) ([]*models.
 func (r *AccountRepository) Update(account *models.Account) error {
 	result, err := r.db.Exec(`
 		UPDATE accounts
-		SET category_id = ?, name = ?, currency = ?, is_liability = ?, is_active = ?, notes = ?
+		SET category_id = ?, name = ?, currency = ?, is_liability = ?, is_active = ?, notes = ?, managed_by_loan_id = ?
 		WHERE id = ?
 	`, account.CategoryID, account.Name, account.Currency,
-		boolToInt(account.IsLiability), boolToInt(account.IsActive), account.Notes, account.ID)
+		boolToInt(account.IsLiability), boolToInt(account.IsActive), account.Notes, account.ManagedByLoanID, account.ID)
 	if err != nil {
 		return err
 	}

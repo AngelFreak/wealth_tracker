@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"wealth_tracker/internal/broker/redact"
 )
 
 var (
@@ -105,7 +107,7 @@ func (c *Client) anonymousLogin(tuxCookie string) (string, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("anonymous login failed with status %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("anonymous login failed with status %d: %s", resp.StatusCode, redact.Body(body))
 	}
 
 	// Extract NOW cookie from response
@@ -154,7 +156,7 @@ func (c *Client) basicLogin(username, password, tuxCookie, nowCookie string) (*S
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("login failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("login failed with status %d: %s", resp.StatusCode, redact.Body(body))
 	}
 
 	// Parse response to verify login success

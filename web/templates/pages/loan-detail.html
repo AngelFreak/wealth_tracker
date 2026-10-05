@@ -1,0 +1,406 @@
+{{define "content"}}
+<div class="space-y-6" x-data="{ showPayment: false, showParticipant: false, showEdit: false, showImport: false, showRules: false }">
+    {{if .ImportSummary}}
+    <div class="rounded-xl bg-blue-500/10 border border-blue-500/20 px-4 py-3 text-sm text-blue-600 dark:text-blue-300">
+        {{.ImportSummary}}
+    </div>
+    {{end}}
+    {{if .ParticipantError}}
+    <div class="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-600 dark:text-red-300">
+        {{.ParticipantError}}
+    </div>
+    {{end}}
+    {{if .OwnershipWarning}}
+    <div class="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+        {{.OwnershipWarning}}
+    </div>
+    {{end}}
+    <!-- Breadcrumb + Header -->
+    <div>
+        <a href="/loans" class="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-3">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            Loans
+        </a>
+        <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                    <h1 class="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white truncate">{{.Loan.Name}}</h1>
+                    {{if eq .Loan.LoanType "split"}}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-violet-500/10 text-violet-500 border border-violet-500/20">Split</span>
+                    {{else if eq .Loan.LoanType "lent"}}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Lent out</span>
+                    {{else}}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-amber-500/10 text-amber-500 border border-amber-500/20">Owed</span>
+                    {{end}}
+                </div>
+                {{if .Loan.StartDate}}<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Started {{.Loan.StartDate.Format "2 Jan 2006"}}</p>{{end}}
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <button @click="showEdit = true" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-dark-border text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-hover">Edit</button>
+                <form action="/loans/{{.Loan.ID}}/delete" method="POST" onsubmit="return confirm('Delete this loan and all its payments?')">
+                    <button type="submit" class="px-3 py-2 text-xs rounded-lg border border-red-500/30 text-red-500 hover:bg-red-500/10">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key figures -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="card p-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Remaining</p>
+            <p class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums mt-1">{{formatNumber .Summary.Remaining .User.NumberFormat}} <span class="text-xs text-gray-500">{{.Loan.Currency}}</span></p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Paid so far</p>
+            <p class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums mt-1">{{formatNumber .Summary.TotalPaid .User.NumberFormat}} <span class="text-xs text-gray-500">{{.Loan.Currency}}</span></p>
+        </div>
+        {{if gt .Loan.PropertyValue 0.0}}
+        <div class="card p-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Property value</p>
+            <p class="text-lg font-semibold text-gray-900 dark:text-white tabular-nums mt-1">{{formatNumber .Loan.PropertyValue .User.NumberFormat}} <span class="text-xs text-gray-500">{{.Loan.Currency}}</span></p>
+        </div>
+        {{end}}
+        <div class="card p-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Your net equity</p>
+            <p class="text-lg font-semibold text-amber-500 tabular-nums mt-1">{{formatNumber .Summary.SelfNetWorth .User.NumberFormat}} <span class="text-xs text-gray-500">{{.Loan.Currency}}</span></p>
+        </div>
+    </div>
+
+    <!-- Participants & Settlement -->
+    <div class="card">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-dark-border">
+            <h2 class="font-semibold text-gray-900 dark:text-white">Participants &amp; settlement</h2>
+            {{if eq .Loan.LoanType "split"}}
+            <button @click="showParticipant = true" class="text-xs text-amber-500 hover:text-amber-400 font-medium">+ Add co-owner</button>
+            {{end}}
+        </div>
+        <div class="divide-y divide-gray-100 dark:divide-dark-border">
+            {{range .Summary.Participants}}
+            <div class="flex items-center justify-between px-5 py-4 gap-4">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        <p class="font-medium text-gray-900 dark:text-white truncate">{{.Participant.Name}}</p>
+                        {{if .Participant.IsSelf}}<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500/10 text-amber-500 border border-amber-500/20">You</span>{{end}}
+                        <span class="text-[11px] text-gray-400">{{printf "%.0f" .Participant.OwnershipPct}}%</span>
+                    </div>
+                    <p class="text-[11px] text-gray-400 mt-0.5">Paid {{formatNumber .Contributed $.User.NumberFormat}} · fair share {{formatNumber .FairShare $.User.NumberFormat}}</p>
+                </div>
+                <div class="flex items-center gap-4 flex-shrink-0">
+                <div class="text-right">
+                    {{if .IsOwed}}
+                    <p class="text-sm font-semibold text-emerald-500 tabular-nums">+{{formatNumber .AbsBalance $.User.NumberFormat}}</p>
+                    <p class="text-[10px] text-gray-400 uppercase tracking-wider">is owed</p>
+                    {{else if .Owes}}
+                    <p class="text-sm font-semibold text-red-500 tabular-nums">−{{formatNumber .AbsBalance $.User.NumberFormat}}</p>
+                    <p class="text-[10px] text-gray-400 uppercase tracking-wider">owes</p>
+                    {{else}}
+                    <p class="text-sm font-semibold text-gray-400 tabular-nums">0</p>
+                    <p class="text-[10px] text-gray-400 uppercase tracking-wider">settled</p>
+                    {{end}}
+                </div>
+                {{if eq $.Loan.LoanType "split"}}
+                <!-- Fixed-width slot so balances line up whether or not the row can be removed -->
+                <div class="w-4 flex-shrink-0">
+                    {{if and (not .Participant.IsSelf) (gt (len $.Summary.Participants) 1)}}
+                    <form action="/loans/{{$.Loan.ID}}/participants/{{.Participant.ID}}/delete" method="POST" onsubmit="return confirm('Remove {{.Participant.Name}} from this loan?')">
+                        <button type="submit" class="text-gray-300 hover:text-red-500" title="Remove">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </form>
+                    {{end}}
+                </div>
+                {{end}}
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </div>
+
+    <!-- Payments -->
+    <div class="card">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-100 dark:border-dark-border">
+            <h2 class="font-semibold text-gray-900 dark:text-white">Payments</h2>
+            <div class="flex items-center gap-2">
+                <button @click="showRules = true" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-dark-border text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-hover">Payer rules</button>
+                <button @click="showImport = true" class="px-3 py-2 text-xs rounded-lg border border-gray-200 dark:border-dark-border text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-hover inline-flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    Import CSV
+                </button>
+                <button @click="showPayment = true" class="btn-primary text-xs">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                    Record payment
+                </button>
+            </div>
+        </div>
+        {{if .Payments}}
+        <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-100 dark:border-dark-border">
+                    <th class="px-3 sm:px-5 py-3 text-left text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                    <th class="px-3 sm:px-5 py-3 text-left text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Who</th>
+                    <th class="px-3 sm:px-5 py-3 text-left text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                    <th class="px-3 sm:px-5 py-3 text-right text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
+                    <th class="px-3 sm:px-5 py-3"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-dark-border">
+                {{range .Payments}}
+                <tr class="hover:bg-gray-50 dark:hover:bg-dark-hover transition-colors">
+                    <td class="px-3 sm:px-5 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{{.PaymentDate.Format "2 Jan 2006"}}</td>
+                    <td class="px-3 sm:px-5 py-3 text-sm text-gray-900 dark:text-white">
+                        {{if gt (len $.Participants) 1}}
+                        <form action="/loans/{{$.Loan.ID}}/payments/{{.ID}}/payer" method="POST">
+                            <select name="participant_id" onchange="this.form.submit()" class="max-w-[8rem] sm:max-w-none text-sm rounded-lg px-2 py-1 -ml-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-surface text-gray-900 dark:text-white">
+                                {{$pid := .ParticipantID}}{{$shared := .IsShared}}
+                                <option value="shared" class="bg-white dark:bg-dark-surface text-gray-900 dark:text-white" {{if $shared}}selected{{end}}>Everyone (shared)</option>
+                                {{range $.Participants}}<option value="{{.ID}}" class="bg-white dark:bg-dark-surface text-gray-900 dark:text-white" {{if and (not $shared) (eq .ID $pid)}}selected{{end}}>{{.Name}}</option>{{end}}
+                            </select>
+                        </form>
+                        {{else}}
+                        {{index $.ParticipantNames .ParticipantID}}
+                        {{end}}
+                    </td>
+                    <td class="px-3 sm:px-5 py-3">
+                        {{if .IsWithdrawal}}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-red-500/10 text-red-500 border border-red-500/20">Borrowed</span>
+                        {{else}}
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-gray-100 dark:bg-dark-bg text-gray-600 dark:text-gray-300">
+                            {{if eq .PaymentType "down_payment"}}Down payment{{else if eq .PaymentType "extra"}}Extra{{else}}Payment{{end}}
+                        </span>
+                        {{end}}
+                        {{if eq .Source "import"}}<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-blue-500/10 text-blue-500 border border-blue-500/20 ml-1">imported</span>{{end}}
+                        {{if .Description}}<span class="text-[11px] text-gray-400 ml-1">{{.Description}}</span>{{end}}
+                    </td>
+                    <td class="px-3 sm:px-5 py-3 text-right text-sm font-medium tabular-nums {{if .IsWithdrawal}}text-red-500{{else}}text-gray-900 dark:text-white{{end}}">{{formatNumber .Amount $.User.NumberFormat}} {{$.Loan.Currency}}</td>
+                    <td class="px-3 sm:px-5 py-3 text-right">
+                        <form action="/loans/{{$.Loan.ID}}/payments/{{.ID}}/delete" method="POST" onsubmit="return confirm('Delete this payment?')">
+                            <button type="submit" class="text-gray-300 hover:text-red-500" title="Delete">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+        </div>
+        {{else}}
+        <div class="px-5 py-10 text-center">
+            <p class="text-sm text-gray-500 dark:text-gray-400">No payments recorded yet.</p>
+            <p class="text-xs text-gray-400 mt-1">Record the first payment to start tracking who has paid what.</p>
+        </div>
+        {{end}}
+    </div>
+
+    <!-- Record Payment Modal -->
+    <div x-show="showPayment" x-cloak class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+        <div class="flex items-center justify-center min-h-screen px-4 py-8">
+            <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" @click="showPayment = false"></div>
+            <div class="relative bg-white dark:bg-dark-surface rounded-2xl shadow-xl w-full max-w-md p-6">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-5">Record payment</h2>
+                <form action="/loans/{{.Loan.ID}}/payments" method="POST" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Who paid</label>
+                        <select name="participant_id" required class="select">
+                            {{if gt (len .Participants) 1}}<option value="shared">Everyone (shared)</option>{{end}}
+                            {{range .Participants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Amount</label>
+                            <input type="number" step="0.01" min="0.01" name="amount" required class="input" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Date</label>
+                            <input type="date" name="payment_date" class="input">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Type</label>
+                        <select name="payment_type" class="select">
+                            <option value="regular">Regular payment</option>
+                            <option value="down_payment">Down payment</option>
+                            <option value="extra">Extra savings</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Note (optional)</label>
+                        <input type="text" name="description" class="input" placeholder="e.g., February instalment">
+                    </div>
+                    <div class="flex items-center justify-end gap-3 pt-2">
+                        <button type="button" @click="showPayment = false" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Cancel</button>
+                        <button type="submit" class="btn-primary text-sm">Save payment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Participant Modal -->
+    <div x-show="showParticipant" x-cloak class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+        <div class="flex items-center justify-center min-h-screen px-4 py-8">
+            <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" @click="showParticipant = false"></div>
+            <div class="relative bg-white dark:bg-dark-surface rounded-2xl shadow-xl w-full max-w-md p-6">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-5">Add co-owner</h2>
+                <form action="/loans/{{.Loan.ID}}/participants" method="POST" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Name</label>
+                        <input type="text" name="name" required class="input" placeholder="e.g., Partner">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Ownership %</label>
+                        <input type="number" step="0.01" name="ownership_pct" required class="input" placeholder="50">
+                        <p class="text-[11px] text-gray-400 mt-1">All participants' ownership should total 100%.</p>
+                    </div>
+                    <div class="flex items-center justify-end gap-3 pt-2">
+                        <button type="button" @click="showParticipant = false" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Cancel</button>
+                        <button type="submit" class="btn-primary text-sm">Add co-owner</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Loan Modal -->
+    <div x-show="showEdit" x-cloak class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+        <div class="flex items-center justify-center min-h-screen px-4 py-8">
+            <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" @click="showEdit = false"></div>
+            <div class="relative bg-white dark:bg-dark-surface rounded-2xl shadow-xl w-full max-w-lg p-6">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-5">Edit loan</h2>
+                <form action="/loans/{{.Loan.ID}}" method="POST" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Name</label>
+                        <input type="text" name="name" required value="{{.Loan.Name}}" class="input">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Starting amount</label>
+                            <input type="number" step="0.01" name="principal" value="{{numInput .Loan.Principal}}" class="input">
+                            <p class="text-[11px] text-gray-400 mt-1">Set to 0 if you import a full account statement — the balance is then taken from the imported rows.</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Property value</label>
+                            <input type="number" step="0.01" name="property_value" value="{{numInput .Loan.PropertyValue}}" class="input">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Type</label>
+                            <select name="loan_type" class="select">
+                                <option value="owed" {{if eq .Loan.LoanType "owed"}}selected{{end}}>I owe this loan</option>
+                                <option value="lent" {{if eq .Loan.LoanType "lent"}}selected{{end}}>I lent this money</option>
+                                <option value="split" {{if eq .Loan.LoanType "split"}}selected{{end}}>Split / co-owned</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Status</label>
+                            <select name="is_active" class="select">
+                                <option value="1" {{if .Loan.IsActive}}selected{{end}}>Active</option>
+                                <option value="0" {{if not .Loan.IsActive}}selected{{end}}>Closed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Category</label>
+                        <select name="category_id" class="select">
+                            <option value="">No category (don't show in Accounts)</option>
+                            {{range .Categories}}<option value="{{.ID}}" {{if eq .ID (derefI64 $.Loan.CategoryID)}}selected{{end}}>{{.Name}}</option>{{end}}
+                        </select>
+                        <p class="text-[11px] text-gray-400 mt-1">Shows this loan as a property asset + loan liability under the chosen category in Accounts.</p>
+                    </div>
+                    <input type="hidden" name="currency" value="{{.Loan.Currency}}">
+                    <div class="flex items-center justify-end gap-3 pt-2">
+                        <button type="button" @click="showEdit = false" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Cancel</button>
+                        <button type="submit" class="btn-primary text-sm">Save changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import CSV Modal -->
+    <div x-show="showImport" x-cloak class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+        <div class="flex items-center justify-center min-h-screen px-4 py-8">
+            <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" @click="showImport = false"></div>
+            <div class="relative bg-white dark:bg-dark-surface rounded-2xl shadow-xl w-full max-w-md p-6">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Import bank CSV</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-5">Upload a bank statement export. Each posting becomes a payment (money in) or a withdrawal (money out). Re-importing the same file is safe — duplicates are skipped. Who paid is decided by your payer rules; unmatched rows are assigned to you.</p>
+                <form action="/loans/{{.Loan.ID}}/import" method="POST" enctype="multipart/form-data" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">CSV file</label>
+                        <input type="file" name="file" accept=".csv,text/csv" required
+                            class="block w-full text-sm text-gray-600 dark:text-gray-300 rounded-xl border border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-bg p-2
+                                   file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 file:cursor-pointer cursor-pointer">
+                    </div>
+
+                    <!-- Who paid: default attribution for this import -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Who paid (default)</label>
+                        <select name="default_participant_id" class="select">
+                            <option value="">Use payer rules, then me for the rest</option>
+                            {{range .Participants}}<option value="{{.ID}}">Everyone in this file → {{.Name}}</option>{{end}}
+                        </select>
+                        <p class="text-[11px] text-gray-400 mt-1">Pick a person to attribute every row to them, or leave on rules (e.g. “Fra Teis” → Teis) with unmatched rows going to you.</p>
+                    </div>
+                    <div class="flex items-center justify-between pt-2">
+                        <button type="button" @click="showImport = false; showRules = true" class="text-xs text-amber-500 hover:text-amber-400">Set up payer rules first</button>
+                        <div class="flex items-center gap-3">
+                            <button type="button" @click="showImport = false" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Cancel</button>
+                            <button type="submit" class="btn-primary text-sm">Import</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payer Rules Modal -->
+    <div x-show="showRules" x-cloak class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+        <div class="flex items-center justify-center min-h-screen px-4 py-8">
+            <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" @click="showRules = false"></div>
+            <div class="relative bg-white dark:bg-dark-surface rounded-2xl shadow-xl w-full max-w-md p-6">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Payer rules</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">When an imported posting's text contains the phrase, it's attributed to that person. For example <span class="font-medium">Fra Teis → Teis</span>.</p>
+
+                {{if .Rules}}
+                <div class="space-y-2 mb-4">
+                    {{range .Rules}}
+                    <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-gray-50 dark:bg-dark-bg">
+                        <div class="text-sm text-gray-700 dark:text-gray-300 min-w-0">
+                            <span class="text-gray-400">contains</span> “{{.MatchText}}” <span class="text-gray-400">→</span> {{index $.ParticipantNames .ParticipantID}}
+                        </div>
+                        <form action="/loans/{{$.Loan.ID}}/rules/{{.ID}}/delete" method="POST">
+                            <button type="submit" class="text-gray-300 hover:text-red-500" title="Delete rule">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </form>
+                    </div>
+                    {{end}}
+                </div>
+                {{else}}
+                <p class="text-xs text-gray-400 mb-4">No rules yet. Add one below.</p>
+                {{end}}
+
+                <form action="/loans/{{.Loan.ID}}/rules" method="POST" class="space-y-3 border-t border-gray-100 dark:border-dark-border pt-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">If text contains</label>
+                        <input type="text" name="match_text" required class="input" placeholder="e.g. Fra Teis">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Attribute to</label>
+                        <select name="participant_id" required class="select">
+                            {{range .Participants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+                        </select>
+                    </div>
+                    <div class="flex items-center justify-end gap-3 pt-1">
+                        <button type="button" @click="showRules = false" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Close</button>
+                        <button type="submit" class="btn-primary text-sm">Add rule</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

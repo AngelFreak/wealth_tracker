@@ -85,6 +85,13 @@ func (db *DB) RunMigrations() error {
 		migrationAuditLogIndexes,
 		// Performance optimizations
 		migrationPerformanceIndexes,
+		// Loans (owed / lent / split co-ownership)
+		migrationLoans,
+		migrationLoanParticipants,
+		migrationLoanPayments,
+		migrationLoanIndexes,
+		// Loan CSV import: payer rules table
+		migrationLoanImportRules,
 	}
 
 	for i, migration := range migrations {
@@ -107,11 +114,25 @@ func (db *DB) RunMigrations() error {
 		migrationAddSaxoAppKey,
 		migrationAddSaxoAppSecret,
 		migrationAddSaxoRedirectURI,
+		// Loan -> account linking (property asset + loan liability under a category)
+		migrationAddLoanCategory,
+		migrationAddLoanAssetAccount,
+		migrationAddLoanLiabilityAccount,
+		migrationAddAccountManagedByLoan,
+		// Loan CSV import: payment dedup columns
+		migrationAddPaymentImportHash,
+		migrationAddPaymentSource,
+		// Shared (everyone) payments
+		migrationAddPaymentShared,
 	}
 	for _, migration := range alterMigrations {
 		// Ignore "duplicate column" errors for idempotency
 		db.Exec(migration)
 	}
+
+	// The payment dedup index depends on the import_hash column added by
+	// the ALTER migrations above, so it must run after them.
+	db.Exec(migrationLoanPaymentImportHashIndex)
 
 	// Run DROP COLUMN migrations for deprecated password columns
 	// These may fail on older SQLite versions (< 3.35) - that's okay, columns just stay unused

@@ -29,10 +29,14 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		//   - Alpine.js x-* directives that contain inline expressions
 		//   - Tailwind CSS inline styles for dynamic classes
 		//   - HTMX hx-* attributes with inline values
-		// 'unsafe-eval' is required by the standard Alpine.js build, which evaluates x-* expressions
-		// with new Function(); without it no Alpine component initialises (e.g. broker sync).
-		// Dropping it means switching to the @alpinejs/csp build and moving expressions into Alpine.data().
-		// In production, consider using CSP nonces for stricter control
+		// 'unsafe-eval' is required by the standard Alpine.js v3 build: it
+		// compiles x-data / @click / x-show expressions with the Function
+		// constructor, which CSP treats as eval. Without it the browser
+		// blocks every Alpine expression and all interactivity (modals,
+		// dropdowns, toggles) silently fails. The eval-free alternative is
+		// Alpine's CSP build, which would require rewriting every inline
+		// expression as a registered component.
+		// In production, consider using CSP nonces for stricter control.
 		csp := "default-src 'self'; " +
 			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; " +
 			"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; " +

@@ -66,10 +66,13 @@ func TestSecurityHeaders_CSP(t *testing.T) {
 		}
 	}
 
-	// The standard Alpine.js build evaluates expressions with new Function(); without
-	// 'unsafe-eval' no Alpine component initialises (broker sync silently never starts).
+	// The standard Alpine.js v3 build compiles its directive expressions
+	// with the Function constructor, which CSP treats as eval. 'unsafe-eval'
+	// must therefore be present in script-src, otherwise the browser blocks
+	// every Alpine expression and all interactivity (modals, dropdowns,
+	// toggles) silently breaks. See SecurityHeaders for the trade-off.
 	if !strings.Contains(csp, "'unsafe-eval'") {
-		t.Error("CSP must allow 'unsafe-eval' for Alpine.js")
+		t.Error("CSP must contain 'unsafe-eval' for Alpine.js to function")
 	}
 }
 

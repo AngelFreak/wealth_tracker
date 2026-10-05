@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"wealth_tracker/internal/broker/redact"
 )
 
 const (
@@ -84,7 +86,7 @@ func (c *Client) fetchSessionDetails() error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("failed to get authentication session (status %d): %s", resp.StatusCode, string(body))
+		return fmt.Errorf("failed to get authentication session (status %d): %s", resp.StatusCode, redact.Body(body))
 	}
 
 	var session AuthSessionResponse
@@ -134,7 +136,7 @@ func (c *Client) IdentifyUser(userID string) (map[string]string, error) {
 			}
 		}
 
-		return nil, fmt.Errorf("identify user failed (status %d): %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("identify user failed (status %d): %s", resp.StatusCode, redact.Body(respBody))
 	}
 
 	// POST /next to get available authenticators
@@ -150,7 +152,7 @@ func (c *Client) IdentifyUser(userID string) (map[string]string, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("get authenticators failed (status %d): %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("get authenticators failed (status %d): %s", resp.StatusCode, redact.Body(respBody))
 	}
 
 	var nextResp NextResponse
@@ -174,7 +176,7 @@ func (c *Client) IdentifyUser(userID string) (map[string]string, error) {
 		c.currentAuthenticatorEAFEHash = nextResp.NextAuthenticator.EAFEHash
 		c.currentAuthenticatorSessionID = nextResp.NextAuthenticator.AuthenticatorSessionID
 		log.Printf("[MitID Client] Stored authenticator state: type=%s, sessionID=%s, flowKey=%s",
-			c.currentAuthenticatorType, c.currentAuthenticatorSessionID, c.currentAuthenticatorSessionFlowKey)
+			c.currentAuthenticatorType, redact.Secret(c.currentAuthenticatorSessionID), redact.Secret(c.currentAuthenticatorSessionFlowKey))
 	} else {
 		log.Printf("[MitID Client] WARNING: nextResp.NextAuthenticator is nil")
 	}
@@ -229,7 +231,7 @@ func (c *Client) selectAuthenticator(authType string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("select authenticator failed (status %d): %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("select authenticator failed (status %d): %s", resp.StatusCode, redact.Body(respBody))
 	}
 
 	var nextResp NextResponse
@@ -253,7 +255,7 @@ func (c *Client) selectAuthenticator(authType string) error {
 		c.currentAuthenticatorEAFEHash = nextResp.NextAuthenticator.EAFEHash
 		c.currentAuthenticatorSessionID = nextResp.NextAuthenticator.AuthenticatorSessionID
 		log.Printf("[MitID Client] After selectAuthenticator: type=%s, sessionID=%s",
-			c.currentAuthenticatorType, c.currentAuthenticatorSessionID)
+			c.currentAuthenticatorType, redact.Secret(c.currentAuthenticatorSessionID))
 	} else {
 		log.Printf("[MitID Client] WARNING: nextResp.NextAuthenticator is nil after selectAuthenticator")
 	}
@@ -307,8 +309,7 @@ func (c *Client) AuthenticateWithApp() error {
 	initURL := fmt.Sprintf("%s%s/v1/authenticator-sessions/web/%s/init-auth",
 		c.baseURL, CodeAppAuth, c.currentAuthenticatorSessionID)
 
-	log.Printf("[MitID Client] Calling init-auth URL: %s", initURL)
-	log.Printf("[MitID Client] AuthenticatorSessionID: %s", c.currentAuthenticatorSessionID)
+	log.Printf("[MitID Client] Calling init-auth (authenticatorSessionID=%s)", redact.Secret(c.currentAuthenticatorSessionID))
 	resp, err := c.doJSON(http.MethodPost, initURL, map[string]interface{}{})
 	if err != nil {
 		log.Printf("[MitID Client] Init-auth request error: %v", err)
@@ -322,7 +323,7 @@ func (c *Client) AuthenticateWithApp() error {
 		log.Printf("[MitID Client] Error reading init-auth response body: %v", err)
 		return fmt.Errorf("reading init response: %w", err)
 	}
-	log.Printf("[MitID Client] Init-auth raw response (status %d): %s", resp.StatusCode, string(respBody))
+	log.Printf("[MitID Client] Init-auth response (status %d): %s", resp.StatusCode, redact.Body(respBody))
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp AppInitAuthResponse
@@ -332,7 +333,7 @@ func (c *Client) AuthenticateWithApp() error {
 			}
 		}
 
-		return fmt.Errorf("init app auth failed (status %d): %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("init app auth failed (status %d): %s", resp.StatusCode, redact.Body(respBody))
 	}
 
 	var initResp AppInitAuthResponse
@@ -342,7 +343,7 @@ func (c *Client) AuthenticateWithApp() error {
 	}
 
 	log.Printf("[MitID Client] Init-auth parsed: pollURL=%s, ticket=%s, appSwitchValue=%s",
-		initResp.PollURL, initResp.Ticket, initResp.ChannelBindingValueAppSwitch)
+		redact.URL(initResp.PollURL), redact.Secret(initResp.Ticket), redact.Secret(initResp.ChannelBindingValueAppSwitch))
 
 	// Start QR animator
 	qrAnimator := NewQRAnimator(qrManager)
@@ -363,7 +364,7 @@ func (c *Client) AuthenticateWithApp() error {
 	var pollResp PollResponse
 	deadline := time.Now().Add(pollTimeout)
 
-	log.Printf("[MitID Client] Starting poll loop, pollURL=%s", initResp.PollURL)
+	log.Printf("[MitID Client] Starting poll loop, pollURL=%s", redact.URL(initResp.PollURL))
 
 	pollCount := 0
 	for time.Now().Before(deadline) {
@@ -432,13 +433,13 @@ func (c *Client) AuthenticateWithApp() error {
 
 	// Extract response and signature
 	if pollResp.Payload == nil {
-		log.Printf("[MitID Client] ERROR: pollResp.Payload is nil, pollResp=%+v", pollResp)
+		log.Printf("[MitID Client] ERROR: pollResp.Payload is nil, status=%s, confirmation=%v", pollResp.Status, pollResp.Confirmation)
 		return fmt.Errorf("missing payload in poll response")
 	}
 
 	response := pollResp.Payload.Response
 	responseSignature := pollResp.Payload.ResponseSignature
-	log.Printf("[MitID Client] Got payload: response=%s, sig=%s", response, responseSignature)
+	log.Printf("[MitID Client] Got payload: response=%s, sig=%s", redact.Secret(response), redact.Secret(responseSignature))
 
 	// Complete SRP exchange
 	if err := c.completeSRPExchange(response, responseSignature); err != nil {
@@ -462,7 +463,7 @@ func (c *Client) pollAppStatus(pollURL, ticket string) (PollResponse, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return PollResponse{}, fmt.Errorf("poll failed (status %d): %s", resp.StatusCode, string(respBody))
+		return PollResponse{}, fmt.Errorf("poll failed (status %d): %s", resp.StatusCode, redact.Body(respBody))
 	}
 
 	var pollResp PollResponse
@@ -495,7 +496,7 @@ func (c *Client) completeSRPExchange(response, responseSignature string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("SRP init failed (status %d): %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("SRP init failed (status %d): %s", resp.StatusCode, redact.Body(respBody))
 	}
 
 	var initResp SRPInitResponse
@@ -541,10 +542,10 @@ func (c *Client) completeSRPExchange(response, responseSignature string) error {
 	defer resp.Body.Close()
 
 	proveRespBody, _ := io.ReadAll(resp.Body)
-	log.Printf("[MitID Client] SRP prove response (status %d): %s", resp.StatusCode, string(proveRespBody))
+	log.Printf("[MitID Client] SRP prove response (status %d): %s", resp.StatusCode, redact.Body(proveRespBody))
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("SRP prove failed (status %d): %s", resp.StatusCode, string(proveRespBody))
+		return fmt.Errorf("SRP prove failed (status %d): %s", resp.StatusCode, redact.Body(proveRespBody))
 	}
 
 	var proveResp SRPProveResponse
@@ -553,7 +554,7 @@ func (c *Client) completeSRPExchange(response, responseSignature string) error {
 	}
 
 	// Stage 5: Verify M2
-	log.Printf("[MitID Client] Verifying M2: %s", proveResp.M2.Value)
+	log.Printf("[MitID Client] Verifying M2 (len=%d)", len(proveResp.M2.Value))
 	if !srp.Stage5(proveResp.M2.Value) {
 		log.Printf("[MitID Client] M2 verification FAILED")
 		return ErrSRPVerifyFailed
@@ -597,10 +598,10 @@ func (c *Client) completeSRPExchange(response, responseSignature string) error {
 	defer resp.Body.Close()
 
 	verifyRespBody, _ := io.ReadAll(resp.Body)
-	log.Printf("[MitID Client] Verify response (status %d): %s", resp.StatusCode, string(verifyRespBody))
+	log.Printf("[MitID Client] Verify response (status %d): %s", resp.StatusCode, redact.Body(verifyRespBody))
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("verify failed (status %d): %s", resp.StatusCode, string(verifyRespBody))
+		return fmt.Errorf("verify failed (status %d): %s", resp.StatusCode, redact.Body(verifyRespBody))
 	}
 
 	// Post next to finalize authenticator
@@ -615,10 +616,10 @@ func (c *Client) completeSRPExchange(response, responseSignature string) error {
 	defer resp.Body.Close()
 
 	respBody, _ := io.ReadAll(resp.Body)
-	log.Printf("[MitID Client] Finalize authenticator response (status %d): %s", resp.StatusCode, string(respBody))
+	log.Printf("[MitID Client] Finalize authenticator response (status %d): %s", resp.StatusCode, redact.Body(respBody))
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("finalize authenticator failed (status %d): %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("finalize authenticator failed (status %d): %s", resp.StatusCode, redact.Body(respBody))
 	}
 
 	var nextResp NextResponse
@@ -626,8 +627,8 @@ func (c *Client) completeSRPExchange(response, responseSignature string) error {
 		return fmt.Errorf("decoding next response: %w", err)
 	}
 
-	log.Printf("[MitID Client] Finalize parsed: nextSessionID=%s, errors=%d, nextAuth=%+v",
-		nextResp.NextSessionID, len(nextResp.Errors), nextResp.NextAuthenticator)
+	log.Printf("[MitID Client] Finalize parsed: nextSessionID=%s, errors=%d, hasNextAuth=%v",
+		redact.Secret(nextResp.NextSessionID), len(nextResp.Errors), nextResp.NextAuthenticator != nil)
 
 	// Check for errors
 	if len(nextResp.Errors) > 0 {
@@ -659,7 +660,7 @@ func (c *Client) completeSRPExchange(response, responseSignature string) error {
 	}
 
 	c.finalizationAuthSessionID = nextResp.NextSessionID
-	log.Printf("[MitID Client] Got finalization session ID: %s", c.finalizationAuthSessionID)
+	log.Printf("[MitID Client] Got finalization session ID: %s", redact.Secret(c.finalizationAuthSessionID))
 	return nil
 }
 
@@ -685,7 +686,7 @@ func (c *Client) FinalizeAndGetAuthCode() (string, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("%w: status %d - %s", ErrFinalizationFailed, resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("%w: status %d - %s", ErrFinalizationFailed, resp.StatusCode, redact.Body(respBody))
 	}
 
 	var finalResp FinalizationResponse
