@@ -191,3 +191,90 @@ func TestImportPayments_AttributesDedupsAndWithdraws(t *testing.T) {
 		t.Errorf("after re-import have %d payments, want 3 (dedup failed)", len(after))
 	}
 }
+
+func TestParseBankCSV_IdenticalRowsGetDistinctHashes(t *testing.T) {
+	csv := strings.Join([]string{
+		";Rente af gæld;1;;-100,00;;;31-03-2026;;;;;;;",
+		";Rente af gæld;1;;-100,00;;;31-03-2026;;;;;;;",
+	}, "\n")
+	rows, _, err := ParseBankCSV(strings.NewReader(csv))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("parsed %d rows, want 2", len(rows))
+	}
+	if rows[0].Hash == rows[1].Hash {
+		t.Error("identical postings got the same hash; the second would be dropped as a duplicate")
+	}
+	// The first occurrence must keep the original hash so rows imported
+	// before this change still dedup on re-import.
+	if want := importHash(rows[0].Date, rows[0].Amount, rows[0].Description); rows[0].Hash != want {
+		t.Errorf("first occurrence hash changed: got %s, want legacy %s", rows[0].Hash, want)
+	}
+}
+
+func TestImportPayments_IdenticalRowsBothImportedAndReimportDedups(t *testing.T) {
+	db := setupServiceLoanDB(t)
+	loanRepo := repository.NewLoanRepository(db)
+	svc := NewLoanService(loanRepo, repository.NewAccountRepository(db), repository.NewTransactionRepository(db))
+	userID := insertServiceUser(t, db)
+	loanID := makeLoan(t, loanRepo, userID, "Statement", models.LoanTypeOwed, 0, 0, true)
+	me := addPart(t, loanRepo, loanID, "Me", 100, true)
+
+	csv := strings.Join([]string{
+		";Rente af gæld;1;;-100,00;;;31-03-2026;;;;;;;",
+		";Rente af gæld;1;;-100,00;;;31-03-2026;;;;;;;",
+	}, "\n")
+
+	rows, skipped, _ := ParseBankCSV(strings.NewReader(csv))
+	res, err := svc.ImportPayments(loanID, rows, skipped, me, 0)
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if res.Imported != 2 || res.Duplicates != 0 {
+		t.Errorf("import = imported %d / dup %d, want 2/0", res.Imported, res.Duplicates)
+	}
+
+	rows2, skipped2, _ := ParseBankCSV(strings.NewReader(csv))
+	res2, err := svc.ImportPayments(loanID, rows2, skipped2, me, 0)
+	if err != nil {
+		t.Fatalf("re-import: %v", err)
+	}
+	if res2.Imported != 0 || res2.Duplicates != 2 {
+		t.Errorf("re-import = imported %d / dup %d, want 0/2", res2.Imported, res2.Duplicates)
+	}
+	if got, _ := loanRepo.GetPayments(loanID); len(got) != 2 {
+		t.Errorf("stored %d payments, want 2", len(got))
+	}
+}
+
+func TestImportPayments_DatabaseErrorRollsBackAndIsReturned(t *testing.T) {
+	db := setupServiceLoanDB(t)
+	loanRepo := repository.NewLoanRepository(db)
+	svc := NewLoanService(loanRepo, repository.NewAccountRepository(db), repository.NewTransactionRepository(db))
+	userID := insertServiceUser(t, db)
+	loanID := makeLoan(t, loanRepo, userID, "Statement", models.LoanTypeOwed, 0, 0, true)
+	me := addPart(t, loanRepo, loanID, "Me", 100, true)
+
+	// Force a non-duplicate failure on the second row.
+	if _, err := db.Exec(`CREATE TRIGGER fail_boom BEFORE INSERT ON loan_payments
+		WHEN NEW.description = 'BOOM' BEGIN SELECT RAISE(ABORT, 'boom'); END`); err != nil {
+		t.Fatalf("create trigger: %v", err)
+	}
+
+	csv := strings.Join([]string{
+		";Fine row;1;;500,00;;;01-04-2026;;;;;;;",
+		";BOOM;1;;600,00;;;02-04-2026;;;;;;;",
+		";Another row;1;;700,00;;;03-04-2026;;;;;;;",
+	}, "\n")
+	rows, skipped, _ := ParseBankCSV(strings.NewReader(csv))
+
+	res, err := svc.ImportPayments(loanID, rows, skipped, me, 0)
+	if err == nil {
+		t.Fatalf("expected an error, got result %+v (a DB failure was reported as success/duplicate)", res)
+	}
+	if got, _ := loanRepo.GetPayments(loanID); len(got) != 0 {
+		t.Errorf("stored %d payments after a failed import, want 0 (import must be atomic)", len(got))
+	}
+}

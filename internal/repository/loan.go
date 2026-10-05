@@ -237,14 +237,53 @@ func (r *LoanRepository) AddPayment(p *models.LoanPayment) (int64, error) {
 	return result.LastInsertId()
 }
 
-// PaymentHashExists reports whether a payment with the given import hash
-// already exists on the loan (used to skip duplicates on re-import).
-func (r *LoanRepository) PaymentHashExists(loanID int64, importHash string) (bool, error) {
-	var n int
-	err := r.db.QueryRow(`
-		SELECT COUNT(*) FROM loan_payments WHERE loan_id = ? AND import_hash = ?
-	`, loanID, importHash).Scan(&n)
-	return n > 0, err
+// AddImportedPayments inserts imported payments in a single transaction.
+// A row whose (loan_id, import_hash) already exists is skipped, and
+// inserted[i] reports whether payments[i] was written. Any other error
+// rolls back the whole batch, so an import is all-or-nothing.
+func (r *LoanRepository) AddImportedPayments(payments []*models.LoanPayment) (inserted []bool, err error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	stmt, err := tx.Prepare(`
+		INSERT INTO loan_payments (loan_id, participant_id, amount, payment_type, payment_date, description, import_hash, source, is_shared)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(loan_id, import_hash) DO NOTHING
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	inserted = make([]bool, len(payments))
+	for i, p := range payments {
+		if p.ImportHash == "" {
+			return nil, errors.New("imported payment is missing its import hash")
+		}
+		result, err := stmt.Exec(p.LoanID, p.ParticipantID, p.Amount, p.PaymentType,
+			p.PaymentDate.Format("2006-01-02"), p.Description, p.ImportHash,
+			models.PaymentSourceImport, boolToInt(p.IsShared))
+		if err != nil {
+			return nil, err
+		}
+		n, err := result.RowsAffected()
+		if err != nil {
+			return nil, err
+		}
+		inserted[i] = n > 0
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return inserted, nil
 }
 
 // GetPayments returns all payments of a loan, newest first.
