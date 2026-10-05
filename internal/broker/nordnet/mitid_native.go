@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"wealth_tracker/internal/broker/nordnet/mitid"
+	"wealth_tracker/internal/broker/redact"
 )
 
 // Country-specific Nordnet domains
@@ -219,7 +220,7 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 	qrManager := mitid.NewQRManager(qrDir)
 	qrManager.SetStatus("initializing")
 
-	log.Printf("[MitID Native] Starting authentication for connection %d, user %s", connectionID, userID)
+	log.Printf("[MitID Native] Starting authentication for connection %d, user %s", connectionID, redact.Secret(userID))
 
 	// Step 1: Initiate Signicat OIDC flow
 	loginURL := fmt.Sprintf(
@@ -245,7 +246,7 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 		qrManager.SetStatus("failed")
 		body, _ := io.ReadAll(resp.Body)
 		log.Printf("[MitID Native] Step 1 FAILED: status %d", resp.StatusCode)
-		return nil, fmt.Errorf("login initiation failed (status %d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("login initiation failed (status %d): %s", resp.StatusCode, redact.Body(body))
 	}
 	log.Printf("[MitID Native] Step 1: Got response, parsing HTML")
 
@@ -262,7 +263,7 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 		log.Printf("[MitID Native] Step 1 FAILED: could not find data-index-url")
 		return nil, fmt.Errorf("could not find data-index-url in response")
 	}
-	log.Printf("[MitID Native] Step 1: Found indexURL: %s", indexURL)
+	log.Printf("[MitID Native] Step 1: Found indexURL: %s", redact.URL(indexURL))
 
 	// Fetch index page
 	log.Printf("[MitID Native] Step 2: Fetching index page")
@@ -301,7 +302,7 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 	if resp.StatusCode != http.StatusOK {
 		qrManager.SetStatus("failed")
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("init MitID auth failed (status %d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("init MitID auth failed (status %d): %s", resp.StatusCode, redact.Body(body))
 	}
 
 	var initResp struct {
@@ -332,7 +333,7 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 		log.Printf("[MitID Native] Step 3 FAILED: extracting aux: %v", err)
 		return nil, fmt.Errorf("extracting aux parameters: %w", err)
 	}
-	log.Printf("[MitID Native] Step 3: Got authSessionID=%s", authSessionID)
+	log.Printf("[MitID Native] Step 3: Got authSessionID=%s", redact.Secret(authSessionID))
 
 	// Step 4: Perform MitID authentication
 	log.Printf("[MitID Native] Step 4: Creating MitID client")
@@ -345,7 +346,7 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 	log.Printf("[MitID Native] Step 4: MitID client created, service: %s", mitidClient.GetServiceProviderName())
 
 	// Identify user and get available authenticators
-	log.Printf("[MitID Native] Step 5: Identifying user %s", userID)
+	log.Printf("[MitID Native] Step 5: Identifying user")
 	availableAuth, err := mitidClient.IdentifyUser(userID)
 	if err != nil {
 		qrManager.SetStatus("failed")
@@ -395,7 +396,7 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 	}
 	authCodeRespBody, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
-	log.Printf("[MitID Native] Step 4: Auth code response (status %d): %s", resp.StatusCode, string(authCodeRespBody))
+	log.Printf("[MitID Native] Step 4: Auth code response (status %d): %s", resp.StatusCode, redact.Body(authCodeRespBody))
 
 	// Finalize auth - this may return a CPR form page
 	log.Printf("[MitID Native] Step 5: Finalizing auth at %s", baseURL+finalizeAuthPath)
@@ -409,7 +410,7 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 
 	// Check if we got a CPR form page
 	finalURL := resp.Request.URL.String()
-	log.Printf("[MitID Native] Step 5: Final URL after redirect: %s", finalURL)
+	log.Printf("[MitID Native] Step 5: Final URL after redirect: %s", redact.URL(finalURL))
 	log.Printf("[MitID Native] Step 5: Finalize response length: %d bytes", len(finalizeRespBody))
 	log.Printf("[MitID Native] Step 5: Contains 'cpr-form': %v, URL contains '/cpr': %v",
 		strings.Contains(string(finalizeRespBody), "cpr-form"),
@@ -437,13 +438,12 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 			return nil, fmt.Errorf("could not extract CPR verification paths from response")
 		}
 
-		log.Printf("[MitID Native] Step 5a: Submitting CPR (length %d) to %s%s, csrf=%s", len(cpr), cprBaseURL, cprVerifyPath, csrfToken)
+		log.Printf("[MitID Native] Step 5a: Submitting CPR (length %d) to %s%s, csrf present=%v", len(cpr), cprBaseURL, cprVerifyPath, csrfToken != "")
 
 		// Try form-urlencoded format first (more common for web forms)
 		cprFormData := url.Values{}
 		cprFormData.Set("cpr", cpr)
 
-		log.Printf("[MitID Native] Step 5a: Sending CPR as form data: cpr=%s", cpr)
 		req, _ := http.NewRequest(http.MethodPost, cprBaseURL+cprVerifyPath, strings.NewReader(cprFormData.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("Accept", "application/json")
@@ -461,11 +461,11 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 		}
 		cprVerifyRespBody, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		log.Printf("[MitID Native] Step 5a: CPR verify response (status %d): %s", resp.StatusCode, string(cprVerifyRespBody))
+		log.Printf("[MitID Native] Step 5a: CPR verify response (status %d): %s", resp.StatusCode, redact.Body(cprVerifyRespBody))
 
 		if resp.StatusCode != http.StatusOK {
 			qrManager.SetStatus("failed")
-			return nil, fmt.Errorf("CPR verification failed (status %d): %s", resp.StatusCode, string(cprVerifyRespBody))
+			return nil, fmt.Errorf("CPR verification failed (status %d): %s", resp.StatusCode, redact.Body(cprVerifyRespBody))
 		}
 
 		// Parse CPR verification response
@@ -494,10 +494,10 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 		}
 		cprFinalizeRespBody, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		log.Printf("[MitID Native] Step 5b: CPR finalize response (status %d): %s", resp.StatusCode, string(cprFinalizeRespBody))
+		log.Printf("[MitID Native] Step 5b: CPR finalize response (status %d): %s", resp.StatusCode, redact.Body(cprFinalizeRespBody))
 
 		finalURL = resp.Request.URL.String()
-		log.Printf("[MitID Native] Step 5b: Final URL after CPR finalize: %s", finalURL)
+		log.Printf("[MitID Native] Step 5b: Final URL after CPR finalize: %s", redact.URL(finalURL))
 	}
 
 	// Extract code from redirect URL
@@ -506,9 +506,9 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 
 	if signicatCode == "" {
 		qrManager.SetStatus("failed")
-		return nil, fmt.Errorf("could not extract Signicat code from redirect URL: %s", finalURL)
+		return nil, fmt.Errorf("could not extract Signicat code from redirect URL: %s", redact.URL(finalURL))
 	}
-	log.Printf("[MitID Native] Step 5: Got Signicat code: %s...", signicatCode[:20])
+	log.Printf("[MitID Native] Step 5: Got Signicat code: %s", redact.Secret(signicatCode))
 
 	// Step 5: Exchange code for Nordnet session
 	sessionPayload := map[string]interface{}{
@@ -537,20 +537,20 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 	if resp.StatusCode != http.StatusOK {
 		qrManager.SetStatus("failed")
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Nordnet session creation failed (status %d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("Nordnet session creation failed (status %d): %s", resp.StatusCode, redact.Body(body))
 	}
 
 	// Read session response - may contain useful data
 	sessionRespBody, _ := io.ReadAll(resp.Body)
-	log.Printf("[MitID Native] Step 5: Session response (status %d): %s", resp.StatusCode, string(sessionRespBody))
+	log.Printf("[MitID Native] Step 5: Session response (status %d): %s", resp.StatusCode, redact.Body(sessionRespBody))
 
 	// Check for ntag in the session response headers
 	sessionNtag := resp.Header.Get("ntag")
-	log.Printf("[MitID Native] Step 5: Session ntag from header: %s", sessionNtag)
+	log.Printf("[MitID Native] Step 5: Session ntag from header: %s", redact.Secret(sessionNtag))
 
 	// Also check for set-cookie headers
 	for _, cookie := range resp.Cookies() {
-		log.Printf("[MitID Native] Step 5: Cookie: %s=%s", cookie.Name, cookie.Value[:min(20, len(cookie.Value))]+"...")
+		log.Printf("[MitID Native] Step 5: Cookie: %s (len=%d)", cookie.Name, len(cookie.Value))
 	}
 
 	// Step 6: Login to get ntag
@@ -576,10 +576,10 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 	defer resp.Body.Close()
 
 	loginRespBody, _ := io.ReadAll(resp.Body)
-	log.Printf("[MitID Native] Step 6: Login response (status %d): %s", resp.StatusCode, string(loginRespBody))
+	log.Printf("[MitID Native] Step 6: Login response (status %d): %s", resp.StatusCode, redact.Body(loginRespBody))
 
 	ntag := resp.Header.Get("ntag")
-	log.Printf("[MitID Native] Step 6: Got ntag from login response: %s", ntag)
+	log.Printf("[MitID Native] Step 6: Got ntag from login response: %s", redact.Secret(ntag))
 
 	// If login didn't return ntag, try to use the one from session creation
 	if ntag == "" && sessionNtag != "" {
@@ -606,7 +606,7 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 	defer resp.Body.Close()
 
 	tokenBody, _ := io.ReadAll(resp.Body)
-	log.Printf("[MitID Native] Step 7: Token response (status %d): %s", resp.StatusCode, string(tokenBody))
+	log.Printf("[MitID Native] Step 7: Token response (status %d): %s", resp.StatusCode, redact.Body(tokenBody))
 
 	var tokenResp struct {
 		JWT string `json:"jwt"`
