@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"wealth_tracker/internal/database"
 	"wealth_tracker/internal/models"
@@ -265,13 +266,13 @@ func (r *LoanRepository) AddImportedPayments(payments []*models.LoanPayment) (in
 	inserted = make([]bool, len(payments))
 	for i, p := range payments {
 		if p.ImportHash == "" {
-			return nil, errors.New("imported payment is missing its import hash")
+			return nil, fmt.Errorf("row %d: imported payment is missing its import hash", i+1)
 		}
 		result, err := stmt.Exec(p.LoanID, p.ParticipantID, p.Amount, p.PaymentType,
 			p.PaymentDate.Format("2006-01-02"), p.Description, p.ImportHash,
 			models.PaymentSourceImport, boolToInt(p.IsShared))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("row %d (%s, %q): %w", i+1, p.PaymentDate.Format("2006-01-02"), p.Description, err)
 		}
 		n, err := result.RowsAffected()
 		if err != nil {

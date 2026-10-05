@@ -44,6 +44,10 @@ func roundMoney(v float64) float64 {
 	return math.Round(v*100) / 100
 }
 
+// ownershipTolerance absorbs float rounding when comparing ownership
+// totals against 100% (e.g. 33.33 + 33.33 + 33.34).
+const ownershipTolerance = 0.01
+
 // ValidateOwnership returns an error if the participants' ownership
 // percentages do not sum to ~100. An empty participant list is allowed
 // (a loan with no participants yet contributes nothing).
@@ -58,8 +62,7 @@ func ValidateOwnership(participants []*models.LoanParticipant) error {
 		}
 		total += p.OwnershipPct
 	}
-	// Allow a small tolerance for float rounding.
-	if math.Abs(total-100) > 0.01 {
+	if math.Abs(total-100) > ownershipTolerance {
 		return errors.New("ownership percentages must sum to 100")
 	}
 	return nil
@@ -89,8 +92,7 @@ func ValidateNewParticipant(existing []*models.LoanParticipant, pct float64) err
 	for _, p := range existing {
 		total += p.OwnershipPct
 	}
-	// Allow a small tolerance for float rounding.
-	if total > 100.01 {
+	if total > 100+ownershipTolerance {
 		return ErrOwnershipOver100
 	}
 	return nil
