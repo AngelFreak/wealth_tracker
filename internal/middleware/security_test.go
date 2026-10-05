@@ -66,9 +66,10 @@ func TestSecurityHeaders_CSP(t *testing.T) {
 		}
 	}
 
-	// Verify unsafe-eval is NOT present (security requirement)
-	if strings.Contains(csp, "unsafe-eval") {
-		t.Error("CSP should not contain 'unsafe-eval'")
+	// The standard Alpine.js build evaluates expressions with new Function(); without
+	// 'unsafe-eval' no Alpine component initialises (broker sync silently never starts).
+	if !strings.Contains(csp, "'unsafe-eval'") {
+		t.Error("CSP must allow 'unsafe-eval' for Alpine.js")
 	}
 }
 
