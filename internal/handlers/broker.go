@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"wealth_tracker/internal/broker/nordnet"
 	"wealth_tracker/internal/broker/saxo"
@@ -16,6 +17,22 @@ import (
 	"wealth_tracker/internal/repository"
 	"wealth_tracker/internal/sync"
 )
+
+// brokerAuthDeadline covers the slowest interactive broker login (Saxo OAuth waits up to 5 minutes).
+const brokerAuthDeadline = 6 * time.Minute
+
+// extendDeadlines lifts the server's 15s read/write timeouts for handlers that block on
+// interactive broker login (MitID approval or Saxo OAuth), so the result still reaches the client.
+func extendDeadlines(w http.ResponseWriter) {
+	rc := http.NewResponseController(w)
+	deadline := time.Now().Add(brokerAuthDeadline)
+	if err := rc.SetReadDeadline(deadline); err != nil {
+		log.Printf("Could not extend read deadline: %v", err)
+	}
+	if err := rc.SetWriteDeadline(deadline); err != nil {
+		log.Printf("Could not extend write deadline: %v", err)
+	}
+}
 
 // BrokerHandler handles broker connection routes.
 type BrokerHandler struct {
@@ -413,6 +430,7 @@ func (h *BrokerHandler) FetchExternalAccounts(w http.ResponseWriter, r *http.Req
 	}
 
 	// Fetch external accounts from broker (this triggers MitID auth)
+	extendDeadlines(w)
 	externalAccounts, err := h.syncService.GetExternalAccounts(id)
 	if err != nil {
 		log.Printf("Error fetching external accounts: %v", err)
@@ -530,7 +548,8 @@ func (h *BrokerHandler) SyncConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Run sync
+	// Run sync (may block on MitID/Saxo login)
+	extendDeadlines(w)
 	result, err := h.syncService.SyncConnection(connectionID)
 	if err != nil {
 		log.Printf("Error syncing connection %d: %v", connectionID, err)
