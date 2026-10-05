@@ -26,13 +26,9 @@ var nordnetDomains = map[string]string{
 	"fi": "www.nordnet.fi",
 }
 
-// Country-specific Signicat client IDs
-var signicatClients = map[string]string{
-	"dk": "prod.nordnet.dk.8x",
-	"se": "prod.nordnet.se.8x",
-	"no": "prod.nordnet.no.8x",
-	"fi": "prod.nordnet.fi.8x",
-}
+// signicatStartURL starts a Signicat OIDC login on Nordnet's side. Nordnet creates the
+// authorization request (PAR) itself and only accepts codes from logins it started.
+const signicatStartURL = "https://api.prod.nntech.io/authentication/v2/methods/signicat/start"
 
 // ActiveMitIDSessionsNative tracks currently active native MitID auth sessions.
 var (
@@ -124,6 +120,41 @@ func GetMitIDStatusNative(connectionID int64) string {
 	return qrManager.GetStatus()
 }
 
+// startSignicatLogin asks Nordnet to start a MitID login and returns the Signicat
+// authorization URL to open. Codes from logins Nordnet did not start are rejected with 401.
+func startSignicatLogin(httpClient *http.Client, domain, redirectURI string) (string, error) {
+	payload, _ := json.Marshal(map[string]string{
+		"redirectUri": redirectURI,
+		"state":       fmt.Sprintf("NEXT_OIDC_STATE_%d", time.Now().UnixNano()),
+		"idp":         "MITID",
+	})
+
+	req, _ := http.NewRequest(http.MethodPost, signicatStartURL, strings.NewReader(string(payload)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Origin", "https://"+domain)
+	req.Header.Set("Referer", "https://"+domain+"/")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("signicat start failed (status %d): %.200s", resp.StatusCode, body)
+	}
+
+	var result struct {
+		RequestURI string `json:"requestUri"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil || result.RequestURI == "" {
+		return "", fmt.Errorf("signicat start returned no requestUri")
+	}
+	return result.RequestURI, nil
+}
+
 // AuthenticateWithMitIDNative performs MitID authentication using native Go implementation.
 // This is a drop-in replacement for AuthenticateWithMitID.
 //
@@ -174,10 +205,7 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 	if domain == "" {
 		domain = nordnetDomains["dk"]
 	}
-	clientID := signicatClients[country]
-	if clientID == "" {
-		clientID = signicatClients["dk"]
-	}
+	redirectURI := fmt.Sprintf("https://%s/login", domain)
 
 	// Create QR output directory
 	qrDir := fmt.Sprintf("%s/mitid_qr_%d", os.TempDir(), connectionID)
@@ -221,18 +249,15 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 
 	log.Printf("[MitID Native] Starting authentication for connection %d, user %s", connectionID, userID)
 
-	// Step 1: Initiate Signicat OIDC flow
-	loginURL := fmt.Sprintf(
-		"https://id.signicat.com/oidc/authorize?"+
-			"client_id=%s&"+
-			"response_type=code&"+
-			"redirect_uri=https://%s/login&"+
-			"scope=openid%%20signicat.national_id&"+
-			"acr_values=urn:signicat:oidc:method:mitid-cpr&"+
-			"state=NEXT_OIDC_STATE_%d",
-		clientID, domain, time.Now().UnixNano())
+	// Step 1: Let Nordnet start the Signicat OIDC flow, then open its authorization request
+	log.Printf("[MitID Native] Step 1: Starting Signicat OIDC flow via Nordnet")
+	loginURL, err := startSignicatLogin(httpClient, domain, redirectURI)
+	if err != nil {
+		log.Printf("[MitID Native] Step 1 FAILED: %v", err)
+		qrManager.SetStatus("failed")
+		return nil, fmt.Errorf("starting login: %w", err)
+	}
 
-	log.Printf("[MitID Native] Step 1: Initiating Signicat OIDC flow")
 	resp, err := httpClient.Get(loginURL)
 	if err != nil {
 		log.Printf("[MitID Native] Step 1 FAILED: %v", err)
@@ -516,7 +541,7 @@ func AuthenticateWithMitIDNative(connectionID int64, country, userID, cpr, metho
 		"countryCode":            strings.ToUpper(country),
 		"signicat": map[string]string{
 			"authorizationCode": signicatCode,
-			"redirectUri":       fmt.Sprintf("https://%s/login", domain),
+			"redirectUri":       redirectURI,
 		},
 	}
 
