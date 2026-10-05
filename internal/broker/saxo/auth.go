@@ -18,6 +18,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"wealth_tracker/internal/broker/redact"
 )
 
 const (
@@ -340,10 +342,10 @@ func AuthenticateWithOAuth(connectionID int64, appKey, appSecret, redirectURI st
 
 	// HTTP handler for OAuth callback
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[Saxo OAuth] Callback received: %s", r.URL.String())
+		log.Printf("[Saxo OAuth] Callback received: %s", redact.URL(r.URL.String()))
 		// Verify state to prevent CSRF
 		if r.URL.Query().Get("state") != state {
-			log.Printf("[Saxo OAuth] State mismatch: expected %s, got %s", state, r.URL.Query().Get("state"))
+			log.Printf("[Saxo OAuth] State mismatch: got %s", redact.Secret(r.URL.Query().Get("state")))
 			errChan <- ErrInvalidState
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusBadRequest)
@@ -420,11 +422,11 @@ func AuthenticateWithOAuth(connectionID int64, appKey, appSecret, redirectURI st
 	// Update status and open browser
 	oauthSession.Status = "waiting"
 	log.Printf("[Saxo OAuth] Opening browser for authentication")
-	log.Printf("[Saxo OAuth] Auth URL: %s", authURL)
+	log.Printf("[Saxo OAuth] Auth URL: %s", redact.URL(authURL))
 
 	if err := openBrowser(authURL); err != nil {
 		log.Printf("[Saxo OAuth] Failed to open browser: %v", err)
-		log.Printf("[Saxo OAuth] Please open this URL manually: %s", authURL)
+		log.Printf("[Saxo OAuth] Please open the auth URL shown in the app manually")
 	}
 
 	// Wait for callback with timeout
@@ -517,16 +519,16 @@ func exchangeCodeForTokens(code, verifier, appKey, appSecret, redirectURI string
 		return nil, fmt.Errorf("reading token response: %w", err)
 	}
 
-	log.Printf("[Saxo OAuth] Token response status: %d, body: %s", resp.StatusCode, string(body))
+	log.Printf("[Saxo OAuth] Token response status: %d, body: %s", resp.StatusCode, redact.Body(body))
 
 	// Check for non-2xx status
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("token request failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("token request failed with status %d: %s", resp.StatusCode, redact.Body(body))
 	}
 
 	var tokenResp OAuthTokenResponse
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return nil, fmt.Errorf("decoding token response: %w (body: %s)", err, string(body))
+		return nil, fmt.Errorf("decoding token response: %w (body: %s)", err, redact.Body(body))
 	}
 
 	if tokenResp.Error != "" {
