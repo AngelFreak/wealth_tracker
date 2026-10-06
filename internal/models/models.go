@@ -290,20 +290,26 @@ type LoanPayment struct {
 	ImportHash    string    `json:"-"`         // dedup key for imported rows (empty for manual)
 	Source        string    `json:"source"`    // manual | import
 	IsShared      bool      `json:"is_shared"` // credited to all participants by ownership %
-	CreatedAt     time.Time `json:"created_at"`
+	// NeedsAssignment marks an imported row no payer rule matched. It moves
+	// the loan balance but is credited to nobody until a payer is picked;
+	// ParticipantID is only a placeholder while it is set.
+	NeedsAssignment bool      `json:"needs_assignment"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 // IsWithdrawal reports whether this entry increases the loan (money
 // borrowed / drawn) rather than paying it down.
 func (p *LoanPayment) IsWithdrawal() bool { return p.Amount < 0 }
 
-// LoanImportRule attributes an imported posting to a participant when the
-// posting's description contains MatchText (case-insensitive).
+// LoanImportRule attributes an imported posting to a participant — or to
+// everyone, when IsShared — when the posting's description contains
+// MatchText (case-insensitive).
 type LoanImportRule struct {
 	ID            int64     `json:"id"`
 	LoanID        int64     `json:"loan_id"`
 	MatchText     string    `json:"match_text"`
-	ParticipantID int64     `json:"participant_id"`
+	ParticipantID int64     `json:"participant_id"` // placeholder when IsShared
+	IsShared      bool      `json:"is_shared"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
@@ -327,6 +333,11 @@ type LoanSummary struct {
 	TotalPaid    float64              `json:"total_paid"` // Sum of all payments (principal paid down).
 	Remaining    float64              `json:"remaining"`  // Principal − TotalPaid (never below 0).
 	Participants []ParticipantSummary `json:"participants"`
+
+	// Unassigned rows (imported, no payer yet) are left out of TotalPaid and
+	// the settlement until someone is picked for them.
+	UnassignedCount int     `json:"unassigned_count"`
+	UnassignedPaid  float64 `json:"unassigned_paid"` // their positive amounts
 
 	// Net-worth contribution of the self participant for this loan:
 	//   SelfAsset      = self.ownership × property_value

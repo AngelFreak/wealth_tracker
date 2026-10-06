@@ -54,9 +54,9 @@ func (h *LoanHandler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Default attribution target: the self participant.
-	fallbackID := h.selfParticipantID(loan.ID)
-	if fallbackID == 0 {
+	// Placeholder participant_id for shared and unassigned rows.
+	placeholderID := h.selfParticipantID(loan.ID)
+	if placeholderID == 0 {
 		http.Redirect(w, r, loanURL(loan.ID, "import=noself"), http.StatusSeeOther)
 		return
 	}
@@ -69,7 +69,7 @@ func (h *LoanHandler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	result, err := h.loanService.ImportPayments(loan.ID, rows, skipped, fallbackID, forceID)
+	result, err := h.loanService.ImportPayments(loan.ID, rows, skipped, placeholderID, forceID)
 	if err != nil {
 		log.Printf("Error importing payments for loan %d: %v", loan.ID, err)
 		http.Redirect(w, r, loanURL(loan.ID, "import=fail"), http.StatusSeeOther)
@@ -81,7 +81,8 @@ func (h *LoanHandler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, loanURL(loan.ID, summary), http.StatusSeeOther)
 }
 
-// AddRule creates a payer rule (description contains X -> participant).
+// AddRule creates a payer rule (description contains X -> participant, or
+// -> everyone when participant_id is "shared").
 func (h *LoanHandler) AddRule(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
@@ -104,23 +105,31 @@ func (h *LoanHandler) AddRule(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Match text is required", http.StatusBadRequest)
 		return
 	}
-	participantID, err := strconv.ParseInt(r.FormValue("participant_id"), 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid participant", http.StatusBadRequest)
-		return
-	}
-	// Ensure the participant belongs to this loan.
-	p, err := h.loanRepo.GetParticipantByID(participantID)
-	if err != nil || p == nil || p.LoanID != loan.ID {
-		http.Error(w, "Participant not found", http.StatusNotFound)
-		return
+	rule := &models.LoanImportRule{LoanID: loan.ID, MatchText: matchText}
+	if r.FormValue("participant_id") == "shared" {
+		// participant_id is a placeholder for a shared rule.
+		rule.IsShared = true
+		rule.ParticipantID = h.selfParticipantID(loan.ID)
+		if rule.ParticipantID == 0 {
+			http.Error(w, "Add yourself as a participant first", http.StatusBadRequest)
+			return
+		}
+	} else {
+		participantID, err := strconv.ParseInt(r.FormValue("participant_id"), 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid participant", http.StatusBadRequest)
+			return
+		}
+		// Ensure the participant belongs to this loan.
+		p, err := h.loanRepo.GetParticipantByID(participantID)
+		if err != nil || p == nil || p.LoanID != loan.ID {
+			http.Error(w, "Participant not found", http.StatusNotFound)
+			return
+		}
+		rule.ParticipantID = participantID
 	}
 
-	if _, err := h.loanRepo.AddImportRule(&models.LoanImportRule{
-		LoanID:        loan.ID,
-		MatchText:     matchText,
-		ParticipantID: participantID,
-	}); err != nil {
+	if _, err := h.loanRepo.AddImportRule(rule); err != nil {
 		log.Printf("Error adding import rule: %v", err)
 		http.Error(w, "Failed to add rule", http.StatusInternalServerError)
 		return
@@ -160,6 +169,37 @@ func (h *LoanHandler) DeleteRule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/loans/"+strconv.FormatInt(loan.ID, 10), http.StatusSeeOther)
+}
+
+// ReapplyRules runs the payer rules over imported rows without a
+// deliberate payer: unassigned rows get attributed where a rule now
+// matches, and rows older imports defaulted to the user become unassigned.
+func (h *LoanHandler) ReapplyRules(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	loan, ok := h.ownedLoan(w, r, user)
+	if !ok {
+		return
+	}
+
+	selfID := h.selfParticipantID(loan.ID)
+	if selfID == 0 {
+		http.Redirect(w, r, loanURL(loan.ID, "import=noself"), http.StatusSeeOther)
+		return
+	}
+
+	result, err := h.loanService.ReapplyRules(loan.ID, selfID)
+	if err != nil {
+		log.Printf("Error re-applying rules for loan %d: %v", loan.ID, err)
+		http.Redirect(w, r, loanURL(loan.ID, "import=reapplyfail"), http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, loanURL(loan.ID, fmt.Sprintf("reapplied=1&assigned=%d&unassigned=%d", result.Assigned, result.Unassigned)), http.StatusSeeOther)
 }
 
 // selfParticipantID returns the loan's self participant id, or 0.

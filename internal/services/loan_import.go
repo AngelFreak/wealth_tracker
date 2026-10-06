@@ -26,7 +26,7 @@ type ImportResult struct {
 	Imported   int      // rows written
 	Duplicates int      // rows skipped because already present
 	Skipped    int      // rows that couldn't be parsed
-	Unmatched  int      // rows attributed to the fallback participant
+	Unmatched  int      // rows no rule matched, left unassigned for a manual pick
 	Errors     []string // non-fatal problems, for display
 }
 
@@ -171,12 +171,15 @@ func occurrenceHash(base string, n int) string {
 //
 // If forceParticipantID is non-zero, every row is attributed to that
 // participant (the user chose a single payer at import time). Otherwise
-// each row is matched against the loan's payer rules, falling back to
-// fallbackParticipantID for rows no rule matches.
+// each row is matched against the loan's payer rules; rows no rule
+// matches are left unassigned (NeedsAssignment) for the user to pick a
+// payer, rather than guessed. placeholderParticipantID fills the
+// participant_id column of shared and unassigned rows, where it is
+// ignored.
 //
 // rows are typically the output of ParseBankCSV; skippedParse is the
 // count it reported so the final summary is complete.
-func (s *LoanService) ImportPayments(loanID int64, rows []ImportedRow, skippedParse int, fallbackParticipantID, forceParticipantID int64) (*ImportResult, error) {
+func (s *LoanService) ImportPayments(loanID int64, rows []ImportedRow, skippedParse int, placeholderParticipantID, forceParticipantID int64) (*ImportResult, error) {
 	rules, err := s.loanRepo.GetImportRules(loanID)
 	if err != nil {
 		return nil, err
@@ -192,30 +195,23 @@ func (s *LoanService) ImportPayments(loanID int64, rows []ImportedRow, skippedPa
 	if !valid[forceParticipantID] {
 		forceParticipantID = 0 // ignore an invalid override
 	}
+	// With a single participant there is no one else to pick: every row is theirs.
+	if forceParticipantID == 0 && len(participants) == 1 {
+		forceParticipantID = participants[0].ID
+	}
 
 	result := &ImportResult{Skipped: skippedParse}
 
 	payments := make([]*models.LoanPayment, len(rows))
-	unmatched := make([]bool, len(rows))
 	for i, row := range rows {
-		var participantID int64
-		if forceParticipantID != 0 {
-			participantID = forceParticipantID
-		} else if matched, ok := matchParticipant(row.Description, rules); ok && valid[matched] {
-			participantID = matched
-		} else {
-			participantID = fallbackParticipantID
-			unmatched[i] = true
-		}
-
 		paymentType := models.PaymentTypeRegular
 		if row.Amount < 0 {
 			paymentType = models.PaymentTypeWithdrawal
 		}
 
-		payments[i] = &models.LoanPayment{
+		payment := &models.LoanPayment{
 			LoanID:        loanID,
-			ParticipantID: participantID,
+			ParticipantID: placeholderParticipantID,
 			Amount:        row.Amount,
 			PaymentType:   paymentType,
 			PaymentDate:   row.Date,
@@ -223,6 +219,12 @@ func (s *LoanService) ImportPayments(loanID int64, rows []ImportedRow, skippedPa
 			ImportHash:    row.Hash,
 			Source:        models.PaymentSourceImport,
 		}
+		if forceParticipantID != 0 {
+			payment.ParticipantID = forceParticipantID
+		} else {
+			applyRule(payment, matchRule(row.Description, rules, valid), placeholderParticipantID)
+		}
+		payments[i] = payment
 	}
 
 	// All-or-nothing: rows already imported are skipped by the database;
@@ -237,7 +239,7 @@ func (s *LoanService) ImportPayments(loanID int64, rows []ImportedRow, skippedPa
 			continue
 		}
 		result.Imported++
-		if unmatched[i] {
+		if payments[i].NeedsAssignment {
 			result.Unmatched++
 		}
 	}
@@ -250,15 +252,106 @@ func (s *LoanService) ImportPayments(loanID int64, rows []ImportedRow, skippedPa
 	return result, nil
 }
 
-// matchParticipant returns the participant id for the first rule whose
-// match text is contained (case-insensitively) in the description.
-func matchParticipant(description string, rules []*models.LoanImportRule) (int64, bool) {
+// applyRule attributes a payment per the matched rule: to its participant,
+// to everyone when the rule is shared, or — with no rule — to nobody yet.
+func applyRule(payment *models.LoanPayment, rule *models.LoanImportRule, placeholderParticipantID int64) {
+	payment.IsShared = false
+	payment.NeedsAssignment = false
+	switch {
+	case rule == nil:
+		payment.ParticipantID = placeholderParticipantID
+		payment.NeedsAssignment = true
+	case rule.IsShared:
+		payment.ParticipantID = placeholderParticipantID
+		payment.IsShared = true
+	default:
+		payment.ParticipantID = rule.ParticipantID
+	}
+}
+
+// ReapplyResult summarises a ReapplyRules run.
+type ReapplyResult struct {
+	Assigned   int // unassigned rows a rule now attributes
+	Unassigned int // rows that had defaulted to the self participant, now waiting for a payer
+}
+
+// ReapplyRules runs the payer rules over a loan's imported rows that have
+// no deliberate payer yet:
+//
+//   - unassigned rows a rule now matches are attributed per that rule;
+//   - rows that older imports defaulted to the self participant (imported,
+//     credited to self, not shared, matching no rule) become unassigned,
+//     so they are picked by hand instead of silently counting as the
+//     user's money.
+//
+// Rows already attributed to someone else, shared, or matching a rule are
+// left alone so manual corrections are kept.
+func (s *LoanService) ReapplyRules(loanID, selfParticipantID int64) (*ReapplyResult, error) {
+	rules, err := s.loanRepo.GetImportRules(loanID)
+	if err != nil {
+		return nil, err
+	}
+	participants, err := s.loanRepo.GetParticipants(loanID)
+	if err != nil {
+		return nil, err
+	}
+	valid := make(map[int64]bool, len(participants))
+	for _, p := range participants {
+		valid[p.ID] = true
+	}
+	payments, err := s.loanRepo.GetPayments(loanID)
+	if err != nil {
+		return nil, err
+	}
+	// Only a shared loan has anyone else a row could belong to.
+	multiplePayers := len(participants) > 1
+
+	result := &ReapplyResult{}
+	for _, pay := range payments {
+		if pay.Source != models.PaymentSourceImport {
+			continue
+		}
+		rule := matchRule(pay.Description, rules, valid)
+		switch {
+		case pay.NeedsAssignment && rule != nil:
+			if rule.IsShared {
+				err = s.loanRepo.SetPaymentShared(pay.ID)
+			} else {
+				err = s.loanRepo.UpdatePaymentParticipant(pay.ID, rule.ParticipantID)
+			}
+			if err != nil {
+				return nil, err
+			}
+			result.Assigned++
+		case multiplePayers && !pay.NeedsAssignment && !pay.IsShared && rule == nil && pay.ParticipantID == selfParticipantID:
+			if err := s.loanRepo.SetPaymentUnassigned(pay.ID); err != nil {
+				return nil, err
+			}
+			result.Unassigned++
+		}
+	}
+
+	if result.Assigned+result.Unassigned > 0 {
+		if err := s.SyncManagedAccounts(loanID); err != nil {
+			return result, err
+		}
+	}
+	return result, nil
+}
+
+// matchRule returns the first rule whose match text is contained
+// (case-insensitively) in the description, or nil. Rules pointing at a
+// participant no longer on the loan are ignored.
+func matchRule(description string, rules []*models.LoanImportRule, validParticipants map[int64]bool) *models.LoanImportRule {
 	desc := strings.ToLower(description)
 	for _, rule := range rules {
 		needle := strings.ToLower(strings.TrimSpace(rule.MatchText))
-		if needle != "" && strings.Contains(desc, needle) {
-			return rule.ParticipantID, true
+		if needle == "" || !strings.Contains(desc, needle) {
+			continue
+		}
+		if rule.IsShared || validParticipants[rule.ParticipantID] {
+			return rule
 		}
 	}
-	return 0, false
+	return nil
 }

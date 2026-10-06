@@ -1,10 +1,12 @@
 package services
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"wealth_tracker/internal/models"
 	"wealth_tracker/internal/repository"
@@ -92,20 +94,30 @@ func TestParseBankCSV_RealFile(t *testing.T) {
 	}
 }
 
-func TestMatchParticipant(t *testing.T) {
+func TestMatchRule(t *testing.T) {
 	rules := []*models.LoanImportRule{
 		{MatchText: "Fra Teis", ParticipantID: 1},
 		{MatchText: "Signe", ParticipantID: 2},
+		{MatchText: "Rente", ParticipantID: 1, IsShared: true},
+		{MatchText: "Gone", ParticipantID: 99},
 	}
-	if id, ok := matchParticipant("Fra Teis", rules); !ok || id != 1 {
-		t.Errorf("'Fra Teis' -> %v,%v want 1,true", id, ok)
+	valid := map[int64]bool{1: true, 2: true}
+	if r := matchRule("Fra Teis", rules, valid); r == nil || r.ParticipantID != 1 {
+		t.Errorf("'Fra Teis' -> %+v, want participant 1", r)
 	}
 	// case-insensitive, substring
-	if id, ok := matchParticipant("Overførsel fra signe konto", rules); !ok || id != 2 {
-		t.Errorf("signe substring -> %v,%v want 2,true", id, ok)
+	if r := matchRule("Overførsel fra signe konto", rules, valid); r == nil || r.ParticipantID != 2 {
+		t.Errorf("signe substring -> %+v, want participant 2", r)
 	}
-	if _, ok := matchParticipant("Betaling andelslån", rules); ok {
-		t.Error("unrelated description should not match")
+	if r := matchRule("Rente af gæld", rules, valid); r == nil || !r.IsShared {
+		t.Errorf("'Rente af gæld' -> %+v, want the shared rule", r)
+	}
+	if r := matchRule("Betaling andelslån", rules, valid); r != nil {
+		t.Errorf("unrelated description matched %+v", r)
+	}
+	// A rule for a participant no longer on the loan is ignored.
+	if r := matchRule("Gone", rules, valid); r != nil {
+		t.Errorf("rule for removed participant matched %+v", r)
 	}
 }
 
@@ -128,7 +140,7 @@ func TestImportPayments_AttributesDedupsAndWithdraws(t *testing.T) {
 
 	csv := strings.Join([]string{
 		";Fra Teis;0400 1;0400 2;4.000,00;;;02-06-2026;;;;;;;",   // payment -> Teis (rule)
-		";Overførsel;0400 1;0400 2;1.000,00;;;02-02-2026;;;;;;;", // payment, unmatched -> fallback
+		";Overførsel;0400 1;0400 2;1.000,00;;;02-02-2026;;;;;;;", // payment, unmatched -> unassigned
 		";Til primær;0400 2;0400 1;-800,00;;;10-06-2026;;;;;;;",  // withdrawal, unmatched
 	}, "\n")
 
@@ -140,7 +152,7 @@ func TestImportPayments_AttributesDedupsAndWithdraws(t *testing.T) {
 		t.Fatalf("parsed %d rows skipped %d, want 3/0", len(rows), skipped)
 	}
 
-	res, err := svc.ImportPayments(loanID, rows, skipped, signe, 0) // fallback = Signe
+	res, err := svc.ImportPayments(loanID, rows, skipped, signe, 0) // placeholder = Signe
 	if err != nil {
 		t.Fatalf("import: %v", err)
 	}
@@ -163,6 +175,11 @@ func TestImportPayments_AttributesDedupsAndWithdraws(t *testing.T) {
 				t.Errorf("'Fra Teis' attributed to %d, want Teis(%d)", p.ParticipantID, teis)
 			}
 			teisPaid = true
+			if p.NeedsAssignment {
+				t.Error("'Fra Teis' matched a rule but is marked unassigned")
+			}
+		} else if !p.NeedsAssignment {
+			t.Errorf("unmatched %q should be unassigned, got participant %d shared=%v", p.Description, p.ParticipantID, p.IsShared)
 		}
 		if p.Amount < 0 {
 			if p.PaymentType != models.PaymentTypeWithdrawal {
@@ -276,5 +293,102 @@ func TestImportPayments_DatabaseErrorRollsBackAndIsReturned(t *testing.T) {
 	}
 	if got, _ := loanRepo.GetPayments(loanID); len(got) != 0 {
 		t.Errorf("stored %d payments after a failed import, want 0 (import must be atomic)", len(got))
+	}
+}
+
+func TestImportPayments_SharedRuleAttributesToEveryone(t *testing.T) {
+	db := setupServiceLoanDB(t)
+	loanRepo := repository.NewLoanRepository(db)
+	svc := NewLoanService(loanRepo, repository.NewAccountRepository(db), repository.NewTransactionRepository(db))
+	userID := insertServiceUser(t, db)
+	loanID := makeLoan(t, loanRepo, userID, "Apartment", models.LoanTypeSplit, 0, 0, true)
+	teis := addPart(t, loanRepo, loanID, "Teis", 50, true)
+	addPart(t, loanRepo, loanID, "Signe", 50, false)
+
+	if _, err := loanRepo.AddImportRule(&models.LoanImportRule{
+		LoanID: loanID, MatchText: "Rente", ParticipantID: teis, IsShared: true,
+	}); err != nil {
+		t.Fatalf("add rule: %v", err)
+	}
+
+	rows, skipped, _ := ParseBankCSV(strings.NewReader(";Rente af gæld;1;;-100,00;;;31-03-2026;;;;;;;"))
+	res, err := svc.ImportPayments(loanID, rows, skipped, teis, 0)
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if res.Unmatched != 0 {
+		t.Errorf("unmatched %d, want 0", res.Unmatched)
+	}
+	payments, _ := loanRepo.GetPayments(loanID)
+	if len(payments) != 1 || !payments[0].IsShared || payments[0].NeedsAssignment {
+		t.Fatalf("payment = %+v, want shared and assigned", payments[0])
+	}
+}
+
+func TestReapplyRules(t *testing.T) {
+	db := setupServiceLoanDB(t)
+	loanRepo := repository.NewLoanRepository(db)
+	svc := NewLoanService(loanRepo, repository.NewAccountRepository(db), repository.NewTransactionRepository(db))
+	userID := insertServiceUser(t, db)
+	loanID := makeLoan(t, loanRepo, userID, "Apartment", models.LoanTypeSplit, 0, 0, true)
+	teis := addPart(t, loanRepo, loanID, "Teis", 50, true)
+	signe := addPart(t, loanRepo, loanID, "Signe", 50, false)
+
+	n := 0
+	add := func(desc string, amount float64, participant int64, shared, unassigned bool, source string) int64 {
+		t.Helper()
+		n++
+		id, err := loanRepo.AddPayment(&models.LoanPayment{
+			LoanID: loanID, ParticipantID: participant, Amount: amount,
+			PaymentType: models.PaymentTypeRegular, PaymentDate: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+			Description: desc, Source: source, IsShared: shared, NeedsAssignment: unassigned,
+			ImportHash: fmt.Sprintf("hash-%d", n),
+		})
+		if err != nil {
+			t.Fatalf("add payment: %v", err)
+		}
+		return id
+	}
+	legacyDefault := add("Overførsel", 168000, teis, false, false, models.PaymentSourceImport) // old fallback -> unassigned
+	waiting := add("Til andelslån", 4000, teis, false, true, models.PaymentSourceImport)       // unassigned, rule now matches
+	manualSigne := add("Overførsel", 4000, signe, false, false, models.PaymentSourceImport)    // deliberate pick, kept
+	sharedRow := add("Rente af gæld", -100, teis, true, false, models.PaymentSourceImport)     // shared, kept
+	manualEntry := add("Overførsel", 500, teis, false, false, models.PaymentSourceManual)      // manual entry, kept
+
+	if _, err := loanRepo.AddImportRule(&models.LoanImportRule{
+		LoanID: loanID, MatchText: "Til andelslån", ParticipantID: signe,
+	}); err != nil {
+		t.Fatalf("add rule: %v", err)
+	}
+
+	res, err := svc.ReapplyRules(loanID, teis)
+	if err != nil {
+		t.Fatalf("reapply: %v", err)
+	}
+	if res.Assigned != 1 || res.Unassigned != 1 {
+		t.Errorf("result = %+v, want 1 assigned / 1 unassigned", res)
+	}
+
+	get := func(id int64) *models.LoanPayment {
+		p, err := loanRepo.GetPaymentByID(id)
+		if err != nil || p == nil {
+			t.Fatalf("get payment %d: %v", id, err)
+		}
+		return p
+	}
+	if p := get(legacyDefault); !p.NeedsAssignment {
+		t.Error("legacy default to self should now be unassigned")
+	}
+	if p := get(waiting); p.NeedsAssignment || p.ParticipantID != signe {
+		t.Errorf("waiting row = participant %d unassigned=%v, want Signe and assigned", p.ParticipantID, p.NeedsAssignment)
+	}
+	if p := get(manualSigne); p.NeedsAssignment || p.ParticipantID != signe {
+		t.Error("deliberate pick of Signe was changed")
+	}
+	if p := get(sharedRow); p.NeedsAssignment || !p.IsShared {
+		t.Error("shared row was changed")
+	}
+	if p := get(manualEntry); p.NeedsAssignment {
+		t.Error("manually entered payment was made unassigned")
 	}
 }
