@@ -81,6 +81,35 @@ func TestBuildSummary_ApartmentExample(t *testing.T) {
 
 // TestBuildSummary_EqualContributions: once both have paid their fair
 // share, the inter-person balance is zero.
+// TestBuildSummary_UnassignedRowsAreLeftOutOfSettlement: an imported row
+// with no payer yet still moves the balance, but counts for nobody until
+// one is picked — it must not inflate anyone's contribution.
+func TestBuildSummary_UnassignedRowsAreLeftOutOfSettlement(t *testing.T) {
+	loan := &models.Loan{Name: "Apartment", LoanType: models.LoanTypeSplit, Principal: 100000}
+	a := participant(1, "A", 50, true)
+	b := participant(2, "B", 50, false)
+	unassigned := payment(1, 10000)
+	unassigned.NeedsAssignment = true
+	payments := []*models.LoanPayment{payment(1, 2000), payment(2, 2000), unassigned}
+
+	s := BuildSummary(loan, []*models.LoanParticipant{a, b}, payments)
+
+	if s.Remaining != 86000 {
+		t.Errorf("Remaining = %v, want 86000 (unassigned rows still pay down the loan)", s.Remaining)
+	}
+	if s.TotalPaid != 4000 {
+		t.Errorf("TotalPaid = %v, want 4000 (unassigned excluded)", s.TotalPaid)
+	}
+	if s.UnassignedCount != 1 || s.UnassignedPaid != 10000 {
+		t.Errorf("unassigned = %d / %v, want 1 / 10000", s.UnassignedCount, s.UnassignedPaid)
+	}
+	for _, name := range []string{"A", "B"} {
+		if ps := findParticipant(t, s, name); ps.Contributed != 2000 || ps.Balance != 0 {
+			t.Errorf("%s contributed %v balance %v, want 2000 / 0", name, ps.Contributed, ps.Balance)
+		}
+	}
+}
+
 func TestBuildSummary_EqualContributions(t *testing.T) {
 	loan := &models.Loan{
 		Name: "Apartment", LoanType: models.LoanTypeSplit,

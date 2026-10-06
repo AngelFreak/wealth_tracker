@@ -229,9 +229,9 @@ func (r *LoanRepository) AddPayment(p *models.LoanPayment) (int64, error) {
 		importHash = p.ImportHash
 	}
 	result, err := r.db.Exec(`
-		INSERT INTO loan_payments (loan_id, participant_id, amount, payment_type, payment_date, description, import_hash, source, is_shared)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, p.LoanID, p.ParticipantID, p.Amount, p.PaymentType, p.PaymentDate.Format("2006-01-02"), p.Description, importHash, source, boolToInt(p.IsShared))
+		INSERT INTO loan_payments (loan_id, participant_id, amount, payment_type, payment_date, description, import_hash, source, is_shared, needs_assignment)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, p.LoanID, p.ParticipantID, p.Amount, p.PaymentType, p.PaymentDate.Format("2006-01-02"), p.Description, importHash, source, boolToInt(p.IsShared), boolToInt(p.NeedsAssignment))
 	if err != nil {
 		return 0, err
 	}
@@ -254,8 +254,8 @@ func (r *LoanRepository) AddImportedPayments(payments []*models.LoanPayment) (in
 	}()
 
 	stmt, err := tx.Prepare(`
-		INSERT INTO loan_payments (loan_id, participant_id, amount, payment_type, payment_date, description, import_hash, source, is_shared)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO loan_payments (loan_id, participant_id, amount, payment_type, payment_date, description, import_hash, source, is_shared, needs_assignment)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(loan_id, import_hash) DO NOTHING
 	`)
 	if err != nil {
@@ -270,7 +270,7 @@ func (r *LoanRepository) AddImportedPayments(payments []*models.LoanPayment) (in
 		}
 		result, err := stmt.Exec(p.LoanID, p.ParticipantID, p.Amount, p.PaymentType,
 			p.PaymentDate.Format("2006-01-02"), p.Description, p.ImportHash,
-			models.PaymentSourceImport, boolToInt(p.IsShared))
+			models.PaymentSourceImport, boolToInt(p.IsShared), boolToInt(p.NeedsAssignment))
 		if err != nil {
 			return nil, fmt.Errorf("row %d (%s, %q): %w", i+1, p.PaymentDate.Format("2006-01-02"), p.Description, err)
 		}
@@ -290,7 +290,7 @@ func (r *LoanRepository) AddImportedPayments(payments []*models.LoanPayment) (in
 // GetPayments returns all payments of a loan, newest first.
 func (r *LoanRepository) GetPayments(loanID int64) ([]*models.LoanPayment, error) {
 	rows, err := r.db.Query(`
-		SELECT id, loan_id, participant_id, amount, payment_type, payment_date, description, source, is_shared, created_at
+		SELECT id, loan_id, participant_id, amount, payment_type, payment_date, description, source, is_shared, COALESCE(needs_assignment, 0), created_at
 		FROM loan_payments
 		WHERE loan_id = ?
 		ORDER BY payment_date DESC, id DESC
@@ -305,8 +305,8 @@ func (r *LoanRepository) GetPayments(loanID int64) ([]*models.LoanPayment, error
 		p := &models.LoanPayment{}
 		var description, source sql.NullString
 		var paymentDate string
-		var isShared int
-		if err := rows.Scan(&p.ID, &p.LoanID, &p.ParticipantID, &p.Amount, &p.PaymentType, &paymentDate, &description, &source, &isShared, &p.CreatedAt); err != nil {
+		var isShared, needsAssignment int
+		if err := rows.Scan(&p.ID, &p.LoanID, &p.ParticipantID, &p.Amount, &p.PaymentType, &paymentDate, &description, &source, &isShared, &needsAssignment, &p.CreatedAt); err != nil {
 			return nil, err
 		}
 		if description.Valid {
@@ -316,6 +316,7 @@ func (r *LoanRepository) GetPayments(loanID int64) ([]*models.LoanPayment, error
 			p.Source = source.String
 		}
 		p.IsShared = isShared == 1
+		p.NeedsAssignment = needsAssignment == 1
 		p.PaymentDate = parseDate(paymentDate)
 		payments = append(payments, p)
 	}
@@ -328,12 +329,12 @@ func (r *LoanRepository) GetPaymentByID(id int64) (*models.LoanPayment, error) {
 	p := &models.LoanPayment{}
 	var description, source sql.NullString
 	var paymentDate string
-	var isShared int
+	var isShared, needsAssignment int
 	err := r.db.QueryRow(`
-		SELECT id, loan_id, participant_id, amount, payment_type, payment_date, description, source, is_shared, created_at
+		SELECT id, loan_id, participant_id, amount, payment_type, payment_date, description, source, is_shared, COALESCE(needs_assignment, 0), created_at
 		FROM loan_payments
 		WHERE id = ?
-	`, id).Scan(&p.ID, &p.LoanID, &p.ParticipantID, &p.Amount, &p.PaymentType, &paymentDate, &description, &source, &isShared, &p.CreatedAt)
+	`, id).Scan(&p.ID, &p.LoanID, &p.ParticipantID, &p.Amount, &p.PaymentType, &paymentDate, &description, &source, &isShared, &needsAssignment, &p.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -347,15 +348,17 @@ func (r *LoanRepository) GetPaymentByID(id int64) (*models.LoanPayment, error) {
 		p.Source = source.String
 	}
 	p.IsShared = isShared == 1
+	p.NeedsAssignment = needsAssignment == 1
 	p.PaymentDate = parseDate(paymentDate)
 	return p, nil
 }
 
 // UpdatePaymentParticipant reassigns a payment to a single participant
-// (clearing the shared flag). Used to correct who-paid after an import.
+// (clearing the shared and needs-assignment flags). Used to correct
+// who-paid after an import.
 func (r *LoanRepository) UpdatePaymentParticipant(paymentID, participantID int64) error {
 	result, err := r.db.Exec(`
-		UPDATE loan_payments SET participant_id = ?, is_shared = 0 WHERE id = ?
+		UPDATE loan_payments SET participant_id = ?, is_shared = 0, needs_assignment = 0 WHERE id = ?
 	`, participantID, paymentID)
 	if err != nil {
 		return err
@@ -375,7 +378,27 @@ func (r *LoanRepository) UpdatePaymentParticipant(paymentID, participantID int64
 // ignored by the settlement math while shared.
 func (r *LoanRepository) SetPaymentShared(paymentID int64) error {
 	result, err := r.db.Exec(`
-		UPDATE loan_payments SET is_shared = 1 WHERE id = ?
+		UPDATE loan_payments SET is_shared = 1, needs_assignment = 0 WHERE id = ?
+	`, paymentID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return errors.New("payment not found")
+	}
+	return nil
+}
+
+// SetPaymentUnassigned marks a payment as waiting for a payer: it is
+// credited to nobody until one is picked. participant_id is left as a
+// placeholder.
+func (r *LoanRepository) SetPaymentUnassigned(paymentID int64) error {
+	result, err := r.db.Exec(`
+		UPDATE loan_payments SET is_shared = 0, needs_assignment = 1 WHERE id = ?
 	`, paymentID)
 	if err != nil {
 		return err
@@ -411,9 +434,9 @@ func (r *LoanRepository) DeletePayment(id int64) error {
 // AddImportRule inserts a payer rule and returns its ID.
 func (r *LoanRepository) AddImportRule(rule *models.LoanImportRule) (int64, error) {
 	result, err := r.db.Exec(`
-		INSERT INTO loan_import_rules (loan_id, match_text, participant_id)
-		VALUES (?, ?, ?)
-	`, rule.LoanID, rule.MatchText, rule.ParticipantID)
+		INSERT INTO loan_import_rules (loan_id, match_text, participant_id, is_shared)
+		VALUES (?, ?, ?, ?)
+	`, rule.LoanID, rule.MatchText, rule.ParticipantID, boolToInt(rule.IsShared))
 	if err != nil {
 		return 0, err
 	}
@@ -424,7 +447,7 @@ func (r *LoanRepository) AddImportRule(rule *models.LoanImportRule) (int64, erro
 // wins during import).
 func (r *LoanRepository) GetImportRules(loanID int64) ([]*models.LoanImportRule, error) {
 	rows, err := r.db.Query(`
-		SELECT id, loan_id, match_text, participant_id, created_at
+		SELECT id, loan_id, match_text, participant_id, COALESCE(is_shared, 0), created_at
 		FROM loan_import_rules
 		WHERE loan_id = ?
 		ORDER BY id ASC
@@ -437,9 +460,11 @@ func (r *LoanRepository) GetImportRules(loanID int64) ([]*models.LoanImportRule,
 	rules := make([]*models.LoanImportRule, 0)
 	for rows.Next() {
 		rule := &models.LoanImportRule{}
-		if err := rows.Scan(&rule.ID, &rule.LoanID, &rule.MatchText, &rule.ParticipantID, &rule.CreatedAt); err != nil {
+		var isShared int
+		if err := rows.Scan(&rule.ID, &rule.LoanID, &rule.MatchText, &rule.ParticipantID, &isShared, &rule.CreatedAt); err != nil {
 			return nil, err
 		}
+		rule.IsShared = isShared == 1
 		rules = append(rules, rule)
 	}
 	return rules, rows.Err()
@@ -449,17 +474,19 @@ func (r *LoanRepository) GetImportRules(loanID int64) ([]*models.LoanImportRule,
 // found.
 func (r *LoanRepository) GetImportRuleByID(id int64) (*models.LoanImportRule, error) {
 	rule := &models.LoanImportRule{}
+	var isShared int
 	err := r.db.QueryRow(`
-		SELECT id, loan_id, match_text, participant_id, created_at
+		SELECT id, loan_id, match_text, participant_id, COALESCE(is_shared, 0), created_at
 		FROM loan_import_rules
 		WHERE id = ?
-	`, id).Scan(&rule.ID, &rule.LoanID, &rule.MatchText, &rule.ParticipantID, &rule.CreatedAt)
+	`, id).Scan(&rule.ID, &rule.LoanID, &rule.MatchText, &rule.ParticipantID, &isShared, &rule.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	rule.IsShared = isShared == 1
 	return rule, nil
 }
 

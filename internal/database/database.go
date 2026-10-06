@@ -124,6 +124,9 @@ func (db *DB) RunMigrations() error {
 		migrationAddPaymentSource,
 		// Shared (everyone) payments
 		migrationAddPaymentShared,
+		// Unmatched imports wait for a payer; rules can target everyone
+		migrationAddPaymentNeedsAssignment,
+		migrationAddImportRuleShared,
 	}
 	for _, migration := range alterMigrations {
 		// Ignore "duplicate column" errors for idempotency

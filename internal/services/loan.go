@@ -147,12 +147,25 @@ func BuildSummary(loan *models.Loan, participants []*models.LoanParticipant, pay
 	// payments) — the money each person has actually put in. The
 	// settlement split ("who owes whom") is based on this, so a larger
 	// down payment by one person means the other owes them.
+	//
+	// Unassigned rows (imported, no payer rule matched) still move the
+	// balance, but are credited to nobody until a payer is picked — so they
+	// are left out of totalContributed and the settlement.
 	netMovement := 0.0
 	totalContributed := 0.0
+	unassignedCount := 0
+	unassignedPaid := 0.0
 	contributed := make(map[int64]float64, len(participants))
 	for _, pay := range payments {
 		if pay.PaymentType != models.PaymentTypeDownPayment {
 			netMovement += pay.Amount
+		}
+		if pay.NeedsAssignment {
+			unassignedCount++
+			if pay.Amount > 0 {
+				unassignedPaid += pay.Amount
+			}
+			continue
 		}
 		if pay.Amount <= 0 {
 			continue
@@ -179,10 +192,12 @@ func BuildSummary(loan *models.Loan, participants []*models.LoanParticipant, pay
 	}
 
 	summary := &models.LoanSummary{
-		Loan:         loan,
-		TotalPaid:    roundMoney(totalContributed),
-		Remaining:    roundMoney(remaining),
-		Participants: make([]models.ParticipantSummary, 0, len(participants)),
+		Loan:            loan,
+		TotalPaid:       roundMoney(totalContributed),
+		Remaining:       roundMoney(remaining),
+		Participants:    make([]models.ParticipantSummary, 0, len(participants)),
+		UnassignedCount: unassignedCount,
+		UnassignedPaid:  roundMoney(unassignedPaid),
 	}
 
 	for _, p := range participants {

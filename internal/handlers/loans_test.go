@@ -378,6 +378,94 @@ func TestLoanHandler_UpdatePaymentPayer_Reassigns(t *testing.T) {
 	}
 }
 
+func TestLoanHandler_UpdatePaymentPayer_AssignsUnassignedRow(t *testing.T) {
+	handler, loanRepo, owner, _ := setupLoanHandlerTest(t)
+
+	loanID, _ := loanRepo.Create(&models.Loan{
+		UserID: owner.ID, Name: "Apartment", LoanType: models.LoanTypeSplit,
+		Principal: 0, PropertyValue: 1000000, Currency: "DKK", IsActive: true,
+	})
+	me := mustAddPart(t, loanRepo, loanID, "Me", 50, true)
+	partner := mustAddPart(t, loanRepo, loanID, "Partner", 50, false)
+	payID, _ := loanRepo.AddPayment(&models.LoanPayment{
+		LoanID: loanID, ParticipantID: me, Amount: 4000, NeedsAssignment: true,
+		PaymentType: models.PaymentTypeRegular, PaymentDate: time.Now(),
+	})
+
+	post := func(value string) *models.LoanPayment {
+		t.Helper()
+		req := authedRequest(owner, "/loans/x/payments/x/payer", url.Values{"participant_id": {value}}, map[string]string{
+			"id":        strconv.FormatInt(loanID, 10),
+			"paymentID": strconv.FormatInt(payID, 10),
+		})
+		rec := httptest.NewRecorder()
+		handler.UpdatePaymentPayer(rec, req)
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("UpdatePaymentPayer(%s) status = %d, want 303", value, rec.Code)
+		}
+		got, _ := loanRepo.GetPaymentByID(payID)
+		return got
+	}
+
+	if got := post(strconv.FormatInt(partner, 10)); got.NeedsAssignment || got.ParticipantID != partner {
+		t.Errorf("after picking Partner: participant %d unassigned=%v", got.ParticipantID, got.NeedsAssignment)
+	}
+	if got := post("unassigned"); !got.NeedsAssignment || got.IsShared {
+		t.Errorf("after unassigning: unassigned=%v shared=%v", got.NeedsAssignment, got.IsShared)
+	}
+	if got := post("shared"); got.NeedsAssignment || !got.IsShared {
+		t.Errorf("after sharing: unassigned=%v shared=%v", got.NeedsAssignment, got.IsShared)
+	}
+}
+
+func TestLoanHandler_AddRule_SharedAndReapply(t *testing.T) {
+	handler, loanRepo, owner, _ := setupLoanHandlerTest(t)
+
+	loanID, _ := loanRepo.Create(&models.Loan{
+		UserID: owner.ID, Name: "Apartment", LoanType: models.LoanTypeSplit,
+		Principal: 0, PropertyValue: 1000000, Currency: "DKK", IsActive: true,
+	})
+	me := mustAddPart(t, loanRepo, loanID, "Me", 50, true)
+	mustAddPart(t, loanRepo, loanID, "Partner", 50, false)
+	params := map[string]string{"id": strconv.FormatInt(loanID, 10)}
+
+	req := authedRequest(owner, "/loans/x/rules", url.Values{"match_text": {"Rente"}, "participant_id": {"shared"}}, params)
+	rec := httptest.NewRecorder()
+	handler.AddRule(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("AddRule status = %d, want 303", rec.Code)
+	}
+	rules, _ := loanRepo.GetImportRules(loanID)
+	if len(rules) != 1 || !rules[0].IsShared {
+		t.Fatalf("rules = %+v, want one shared rule", rules)
+	}
+
+	interest, _ := loanRepo.AddPayment(&models.LoanPayment{
+		LoanID: loanID, ParticipantID: me, Amount: -100, NeedsAssignment: true, Source: models.PaymentSourceImport,
+		PaymentType: models.PaymentTypeWithdrawal, PaymentDate: time.Now(), Description: "Rente af gæld", ImportHash: "a",
+	})
+	legacy, _ := loanRepo.AddPayment(&models.LoanPayment{
+		LoanID: loanID, ParticipantID: me, Amount: 168000, Source: models.PaymentSourceImport,
+		PaymentType: models.PaymentTypeRegular, PaymentDate: time.Now(), Description: "Overførsel", ImportHash: "b",
+	})
+
+	req = authedRequest(owner, "/loans/x/rules/apply", url.Values{}, params)
+	rec = httptest.NewRecorder()
+	handler.ReapplyRules(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("ReapplyRules status = %d, want 303", rec.Code)
+	}
+	if loc := rec.Header().Get("Location"); !strings.Contains(loc, "assigned=1") || !strings.Contains(loc, "unassigned=1") {
+		t.Errorf("redirect = %q, want assigned=1 and unassigned=1", loc)
+	}
+	if got, _ := loanRepo.GetPaymentByID(interest); !got.IsShared || got.NeedsAssignment {
+		t.Errorf("interest row: shared=%v unassigned=%v, want shared", got.IsShared, got.NeedsAssignment)
+	}
+	if got, _ := loanRepo.GetPaymentByID(legacy); !got.NeedsAssignment {
+		t.Error("legacy row defaulted to self should be unassigned")
+	}
+}
+
 // mustAddPart adds a participant and returns its id (test helper).
 func mustAddPart(t *testing.T, r *repository.LoanRepository, loanID int64, name string, pct float64, self bool) int64 {
 	t.Helper()

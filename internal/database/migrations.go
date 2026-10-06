@@ -432,6 +432,20 @@ const migrationAddPaymentShared = `
 ALTER TABLE loan_payments ADD COLUMN is_shared INTEGER DEFAULT 0;
 `
 
+// migrationAddPaymentNeedsAssignment marks an imported payment that no
+// payer rule matched. It still moves the loan balance but is credited to
+// nobody until a payer is picked, so its participant_id is a placeholder.
+const migrationAddPaymentNeedsAssignment = `
+ALTER TABLE loan_payments ADD COLUMN needs_assignment INTEGER DEFAULT 0;
+`
+
+// migrationAddImportRuleShared lets a payer rule attribute matching
+// postings to everyone (shared) instead of one participant, in which case
+// its participant_id is a placeholder.
+const migrationAddImportRuleShared = `
+ALTER TABLE loan_import_rules ADD COLUMN is_shared INTEGER DEFAULT 0;
+`
+
 // migrationLoanPaymentImportHashIndex enforces dedup: at most one payment
 // per (loan, import_hash). NULL hashes (manual entries) are not affected
 // by SQLite's unique-index treatment of NULLs.

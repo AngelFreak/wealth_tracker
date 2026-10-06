@@ -236,6 +236,12 @@ func importSummaryFromQuery(r *http.Request) string {
 		return "Add yourself as a participant before importing."
 	case "fail":
 		return "The import failed. Please try again."
+	case "reapplyfail":
+		return "Re-applying the payer rules failed. Please try again."
+	}
+	if q.Get("reapplied") != "" {
+		return fmt.Sprintf("Payer rules re-applied: %s posting(s) assigned by a rule, %s moved to unassigned.",
+			numberOrZero(q.Get("assigned")), numberOrZero(q.Get("unassigned")))
 	}
 	if q.Get("imported") == "" {
 		return ""
@@ -252,9 +258,18 @@ func importSummaryFromQuery(r *http.Request) string {
 		msg += ", ignored " + skipped + " unparseable rows"
 	}
 	if unmatched != "" && unmatched != "0" {
-		msg += ". " + unmatched + " assigned to you (no rule matched)"
+		msg += ". " + unmatched + " matched no payer rule and need a payer picked"
 	}
 	return msg + "."
+}
+
+// numberOrZero returns s if it is a plain non-negative integer, else "0",
+// so query values echoed into a message stay numeric.
+func numberOrZero(s string) string {
+	if _, err := strconv.Atoi(s); err != nil || strings.HasPrefix(s, "-") {
+		return "0"
+	}
+	return s
 }
 
 // Create handles creating a new loan. A self participant is created
@@ -674,10 +689,16 @@ func (h *LoanHandler) UpdatePaymentPayer(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// "shared" attributes the payment to everyone by ownership %.
-	if r.FormValue("participant_id") == "shared" {
-		if err := h.loanRepo.SetPaymentShared(paymentID); err != nil {
-			log.Printf("Error sharing payment: %v", err)
+	// "shared" attributes the payment to everyone by ownership %;
+	// "unassigned" credits it to nobody until a payer is picked.
+	switch r.FormValue("participant_id") {
+	case "shared", "unassigned":
+		update := h.loanRepo.SetPaymentShared
+		if r.FormValue("participant_id") == "unassigned" {
+			update = h.loanRepo.SetPaymentUnassigned
+		}
+		if err := update(paymentID); err != nil {
+			log.Printf("Error updating payment payer: %v", err)
 			http.Error(w, "Failed to update payer", http.StatusInternalServerError)
 			return
 		}

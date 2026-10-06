@@ -83,7 +83,7 @@
                         {{if .Participant.IsSelf}}<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500/10 text-amber-500 border border-amber-500/20">You</span>{{end}}
                         <span class="text-[11px] text-gray-400">{{printf "%.0f" .Participant.OwnershipPct}}%</span>
                     </div>
-                    <p class="text-[11px] text-gray-400 mt-0.5">Paid {{formatNumber .Contributed $.User.NumberFormat}} · fair share {{formatNumber .FairShare $.User.NumberFormat}}</p>
+                    <p class="text-[11px] text-gray-400 mt-0.5">Paid {{formatNumber .Contributed $.User.NumberFormat}} · fair share {{formatNumber .FairShare $.User.NumberFormat}} <span class="text-gray-400/70">= {{printf "%.0f" .Participant.OwnershipPct}}% of {{formatNumber $.Summary.TotalPaid $.User.NumberFormat}} paid in total</span></p>
                 </div>
                 <div class="flex items-center gap-4 flex-shrink-0">
                 <div class="text-right">
@@ -114,6 +114,11 @@
             </div>
             {{end}}
         </div>
+        {{if .Summary.UnassignedCount}}
+        <p class="px-5 py-3 text-[11px] text-amber-600 dark:text-amber-400 border-t border-gray-100 dark:border-dark-border">
+            Leaves out {{.Summary.UnassignedCount}} unassigned posting{{if ne .Summary.UnassignedCount 1}}s{{end}}{{if gt .Summary.UnassignedPaid 0.0}} ({{formatNumber .Summary.UnassignedPaid .User.NumberFormat}} {{.Loan.Currency}} paid in){{end}} until a payer is picked.
+        </p>
+        {{end}}
     </div>
 
     <!-- Payments -->
@@ -132,6 +137,12 @@
                 </button>
             </div>
         </div>
+        {{if .Summary.UnassignedCount}}
+        <div class="flex flex-wrap items-center justify-between gap-2 px-5 py-3 bg-amber-500/10 border-b border-amber-500/20 text-sm text-amber-700 dark:text-amber-300">
+            <span>{{.Summary.UnassignedCount}} imported posting{{if ne .Summary.UnassignedCount 1}}s{{end}} matched no payer rule. Pick who paid below, or add a rule.</span>
+            <button @click="showRules = true" class="text-xs font-medium text-amber-600 dark:text-amber-400 hover:underline">Payer rules</button>
+        </div>
+        {{end}}
         {{if .Payments}}
         <div class="overflow-x-auto">
         <table class="w-full">
@@ -146,15 +157,16 @@
             </thead>
             <tbody class="divide-y divide-gray-100 dark:divide-dark-border">
                 {{range .Payments}}
-                <tr class="hover:bg-gray-50 dark:hover:bg-dark-hover transition-colors">
+                <tr class="{{if .NeedsAssignment}}bg-amber-500/5 {{end}}hover:bg-gray-50 dark:hover:bg-dark-hover transition-colors">
                     <td class="px-3 sm:px-5 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{{.PaymentDate.Format "2 Jan 2006"}}</td>
                     <td class="px-3 sm:px-5 py-3 text-sm text-gray-900 dark:text-white">
                         {{if gt (len $.Participants) 1}}
                         <form action="/loans/{{$.Loan.ID}}/payments/{{.ID}}/payer" method="POST">
-                            <select name="participant_id" onchange="this.form.submit()" class="max-w-[8rem] sm:max-w-none text-sm rounded-lg px-2 py-1 -ml-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 border border-gray-200 dark:border-dark-border bg-white dark:bg-dark-surface text-gray-900 dark:text-white">
-                                {{$pid := .ParticipantID}}{{$shared := .IsShared}}
-                                <option value="shared" class="bg-white dark:bg-dark-surface text-gray-900 dark:text-white" {{if $shared}}selected{{end}}>Everyone (shared)</option>
-                                {{range $.Participants}}<option value="{{.ID}}" class="bg-white dark:bg-dark-surface text-gray-900 dark:text-white" {{if and (not $shared) (eq .ID $pid)}}selected{{end}}>{{.Name}}</option>{{end}}
+                            <select name="participant_id" onchange="this.form.submit()" class="max-w-[8rem] sm:max-w-none text-sm rounded-lg px-2 py-1 -ml-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 border {{if .NeedsAssignment}}border-amber-500/60 text-amber-600 dark:text-amber-400{{else}}border-gray-200 dark:border-dark-border text-gray-900 dark:text-white{{end}} bg-white dark:bg-dark-surface">
+                                {{$pid := .ParticipantID}}{{$shared := .IsShared}}{{$unassigned := .NeedsAssignment}}
+                                <option value="unassigned" class="bg-white dark:bg-dark-surface text-gray-900 dark:text-white" {{if $unassigned}}selected{{end}}>Unassigned</option>
+                                <option value="shared" class="bg-white dark:bg-dark-surface text-gray-900 dark:text-white" {{if and $shared (not $unassigned)}}selected{{end}}>Everyone (shared)</option>
+                                {{range $.Participants}}<option value="{{.ID}}" class="bg-white dark:bg-dark-surface text-gray-900 dark:text-white" {{if and (not $shared) (not $unassigned) (eq .ID $pid)}}selected{{end}}>{{.Name}}</option>{{end}}
                             </select>
                         </form>
                         {{else}}
@@ -326,7 +338,7 @@
             <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" @click="showImport = false"></div>
             <div class="relative bg-white dark:bg-dark-surface rounded-2xl shadow-xl w-full max-w-md p-6">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Import bank CSV</h2>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-5">Upload a bank statement export. Each posting becomes a payment (money in) or a withdrawal (money out). Re-importing the same file is safe — duplicates are skipped. Who paid is decided by your payer rules; unmatched rows are assigned to you.</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-5">Upload a bank statement export. Each posting becomes a payment (money in) or a withdrawal (money out). Re-importing the same file is safe — duplicates are skipped. Who paid is decided by your payer rules; rows no rule matches are left unassigned for you to pick.</p>
                 <form action="/loans/{{.Loan.ID}}/import" method="POST" enctype="multipart/form-data" class="space-y-4">
                     <div>
                         <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">CSV file</label>
@@ -339,10 +351,10 @@
                     <div>
                         <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Who paid (default)</label>
                         <select name="default_participant_id" class="select">
-                            <option value="">Use payer rules, then me for the rest</option>
+                            <option value="">Use payer rules; leave the rest unassigned</option>
                             {{range .Participants}}<option value="{{.ID}}">Everyone in this file → {{.Name}}</option>{{end}}
                         </select>
-                        <p class="text-[11px] text-gray-400 mt-1">Pick a person to attribute every row to them, or leave on rules (e.g. “Fra Teis” → Teis) with unmatched rows going to you.</p>
+                        <p class="text-[11px] text-gray-400 mt-1">Pick a person to attribute every row to them, or use rules (e.g. “Fra Teis” → Teis, “Rente” → Everyone). Unmatched rows wait for you to pick a payer.</p>
                     </div>
                     <div class="flex items-center justify-between pt-2">
                         <button type="button" @click="showImport = false; showRules = true" class="text-xs text-amber-500 hover:text-amber-400">Set up payer rules first</button>
@@ -362,14 +374,14 @@
             <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" @click="showRules = false"></div>
             <div class="relative bg-white dark:bg-dark-surface rounded-2xl shadow-xl w-full max-w-md p-6">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Payer rules</h2>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">When an imported posting's text contains the phrase, it's attributed to that person. For example <span class="font-medium">Fra Teis → Teis</span>.</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">When an imported posting's text contains the phrase, it's attributed to that person — or to everyone, split by ownership. For example <span class="font-medium">Fra Teis → Teis</span> or <span class="font-medium">Rente → Everyone</span>. Postings no rule matches stay unassigned.</p>
 
                 {{if .Rules}}
                 <div class="space-y-2 mb-4">
                     {{range .Rules}}
                     <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-gray-50 dark:bg-dark-bg">
                         <div class="text-sm text-gray-700 dark:text-gray-300 min-w-0">
-                            <span class="text-gray-400">contains</span> “{{.MatchText}}” <span class="text-gray-400">→</span> {{index $.ParticipantNames .ParticipantID}}
+                            <span class="text-gray-400">contains</span> “{{.MatchText}}” <span class="text-gray-400">→</span> {{if .IsShared}}Everyone (shared){{else}}{{index $.ParticipantNames .ParticipantID}}{{end}}
                         </div>
                         <form action="/loans/{{$.Loan.ID}}/rules/{{.ID}}/delete" method="POST">
                             <button type="submit" class="text-gray-300 hover:text-red-500" title="Delete rule">
@@ -392,6 +404,7 @@
                         <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Attribute to</label>
                         <select name="participant_id" required class="select">
                             {{range .Participants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+                            {{if gt (len .Participants) 1}}<option value="shared">Everyone (shared)</option>{{end}}
                         </select>
                     </div>
                     <div class="flex items-center justify-end gap-3 pt-1">
@@ -399,6 +412,13 @@
                         <button type="submit" class="btn-primary text-sm">Add rule</button>
                     </div>
                 </form>
+
+                {{if gt (len .Participants) 1}}
+                <form action="/loans/{{.Loan.ID}}/rules/apply" method="POST" class="mt-4 pt-4 border-t border-gray-100 dark:border-dark-border">
+                    <p class="text-[11px] text-gray-400 mb-2">Runs the rules over imported postings without a payer. Imported postings credited to you that no rule matches go back to unassigned (pick yourself again where they really were yours). Postings on someone else or on Everyone are left as they are.</p>
+                    <button type="submit" class="w-full px-3 py-2 text-xs rounded-lg border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10">Re-apply rules to imported postings</button>
+                </form>
+                {{end}}
             </div>
         </div>
     </div>
