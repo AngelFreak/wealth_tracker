@@ -147,8 +147,14 @@ func (h *DashboardHandler) calculateMonthlyChange(userID int64, currentNetWorth 
 	for _, acc := range accounts {
 		monthlySum, _ := h.transactionRepo.GetSumSince(acc.ID, startOfMonth)
 		if acc.IsLiability {
-			// Use absolute value to handle both positive and negative storage
-			change -= math.Abs(monthlySum)
+			// Debt may be stored as a positive or negative balance, so compare
+			// its size now with its size at the start of the month: paying
+			// debt down raises net worth, taking on more lowers it.
+			latest, err := h.transactionRepo.GetLatestBalance(acc.ID)
+			if err != nil {
+				continue
+			}
+			change -= math.Abs(latest) - math.Abs(latest-monthlySum)
 		} else {
 			change += monthlySum
 		}
